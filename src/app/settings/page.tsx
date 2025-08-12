@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Button } from "../../components/ui/button"
-import { getSessionUser, getSettings, saveSettings } from "@/lib/storage"
+import { getSessionUser, getSettings, saveSettings, logoutLocal } from "@/lib/storage"
 import { useEffect, useState } from "react"
 
 export default function SettingsPage() {
   const router = useRouter()
+
   useEffect(() => {
     const user = getSessionUser()
     if (!user) router.push("/login")
@@ -30,6 +31,11 @@ export default function SettingsPage() {
     setTimeout(() => setSaving(false), 400)
   }
 
+  const onLogout = () => {
+    logoutLocal()
+    router.push("/login")
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -38,7 +44,7 @@ export default function SettingsPage() {
           <SidebarTrigger />
           <h1 className="text-base font-medium">Settings</h1>
         </div>
-        <main className="container mx-auto p-4">
+        <main className="container mx-auto p-4 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Integrations and Connections</CardTitle>
@@ -46,6 +52,19 @@ export default function SettingsPage() {
                 Configure outbound automation to n8n. Connect social media accounts here to trigger scheduled posts.
               </CardDescription>
             </CardHeader>
+          </Card>
+
+          {/* Logout Button */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Account</CardTitle>
+              <CardDescription>Manage your account preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="destructive" onClick={onLogout}>
+                Logout
+              </Button>
+            </CardContent>
           </Card>
         </main>
       </SidebarInset>
