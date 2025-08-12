@@ -38,7 +38,16 @@ export default function SettingsPage() {
           <SidebarTrigger />
           <h1 className="text-base font-medium">Settings</h1>
         </div>
-        {/* Logic code */}
+        <main className="container mx-auto p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Integrations and Connections</CardTitle>
+              <CardDescription>
+                Configure outbound automation to n8n. Connect social media accounts here to trigger scheduled posts.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   )
