@@ -13,8 +13,8 @@ import { getSessionUser, loginLocal, getUsers } from "@/lib/storage"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("demo@example.com")
-  const [password, setPassword] = useState("demo1234")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -35,6 +35,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center p-4">
       <Card className="w-full max-w-sm">
+        <div className="text-center py-2">
+          <h1 className="text-lg font-bold">SMP Post Scheduler</h1>
+        </div>
         <CardHeader>
           <CardTitle>Login</CardTitle>
           <CardDescription>Use your account to access the scheduler.</CardDescription>
@@ -43,7 +46,7 @@ export default function LoginPage() {
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input id="email" type="email" value={email} placeholder="Ex. demo@example.com" onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -51,6 +54,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 value={password}
+                placeholder="Enter your password..."
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
@@ -65,14 +69,14 @@ export default function LoginPage() {
                 Register
               </Link>
             </p>
-            <div className="mt-4 text-xs text-muted-foreground">
+            {/* <div className="mt-4 text-xs text-muted-foreground">
               Existing users:{" "}
               {getUsers().length > 0
                 ? getUsers()
                     .map((u) => u.email)
                     .join(", ")
                 : "none"}
-            </div>
+            </div> */}
           </form>
         </CardContent>
       </Card>

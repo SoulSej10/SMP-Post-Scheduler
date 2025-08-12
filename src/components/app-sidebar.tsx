@@ -34,9 +34,9 @@ export function AppSidebar() {
               {items.map((i) => (
                 <SidebarMenuItem key={i.title}>
                   <SidebarMenuButton asChild>
-                    <Link href={i.href}>
-                      <i.icon />
-                      <span>{i.title}</span>
+                    <Link href={i.href} className="flex items-center gap-2">
+                      <i.icon className="w-4 h-4" /> {/* Adjust icon size if needed */}
+                      <span className="text-lg font-small">{i.title}</span> {/* Larger text */}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

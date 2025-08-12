@@ -36,6 +36,9 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center p-4">
       <Card className="w-full max-w-sm">
+        <div className="text-center py-2">
+          <h1 className="text-lg font-bold">SMP Post Scheduler</h1>
+        </div>
         <CardHeader>
           <CardTitle>Register</CardTitle>
           <CardDescription>Create an account for scheduling.</CardDescription>
@@ -44,11 +47,11 @@ export default function RegisterPage() {
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Input id="name" value={name} placeholder="Enter your name..." onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input id="email" type="email" value={email} placeholder="Ex. demo@example.com" onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -56,6 +59,7 @@ export default function RegisterPage() {
                 id="password"
                 type="password"
                 value={password}
+                placeholder="Enter your password..."
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
