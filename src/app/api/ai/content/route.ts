@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server"
 import { generateText } from "ai"
-import { xai } from "@ai-sdk/xai"
-
+import { cohere } from "@ai-sdk/cohere"
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,19 +8,16 @@ export async function POST(req: NextRequest) {
     const prompt: string = body?.prompt || "Write a short social post."
     const count: number = Math.max(1, Math.min(20, Number(body?.count || 5)))
 
-    if (!process.env.XAI_API_KEY) {
+    if (!process.env.COHERE_API_KEY) {
       const variants = Array.from({ length: count }, (_, i) => `${prompt} (alt ${i + 1})`)
       return Response.json({ variants })
     }
 
     const { text } = await generateText({
-      model: xai("grok-3"),
+      model: cohere("command-r-plus"), // You can also use "command-light" for cheaper
       system:
-        "You generate concise, engaging social media copy for Facebook, Instagram, and LinkedIn audiences. Provide diverse variations and avoid duplication.",
-      prompt:
-        `Create ${count} distinct social media post variations based on the following briefing. ` +
-        `Respond as a numbered list only. Keep each item under 240 characters. Avoid hashtags unless helpful. ` +
-        `Briefing: ${prompt}`,
+        "You are an expert social media content creator. Generate engaging, platform-appropriate posts that match the specified requirements exactly. Focus on the target audience and maintain the requested tone throughout. Always include relevant hashtags when keywords are provided.",
+      prompt: `${prompt}\n\nGenerate ${count} distinct variations of this post. Each should be unique while maintaining the core message and requirements. Respond as a numbered list only.`,
     })
 
     const variants = text

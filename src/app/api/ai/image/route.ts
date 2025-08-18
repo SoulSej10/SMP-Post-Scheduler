@@ -3,25 +3,41 @@ import type { NextRequest } from "next/server"
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const prompt: string = body?.prompt || "Product image"
+    const prompt: string = body?.prompt || "Professional social media image"
 
-    if (!process.env.FAL_KEY) {
-      return Response.json({
-        imageUrl: `/placeholder.svg?height=512&width=512&query=${encodeURIComponent(prompt)}`,
-      })
+    const response = await fetch("https://api.stability.ai/v2beta/stable-image/generate/core", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,
+        Accept: "application/json",
+      },
+      body: (() => {
+        const form = new FormData()
+        form.append("prompt", prompt)
+        form.append("output_format", "png") // png | jpeg | webp
+        return form
+      })(),
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(`Stability API error: ${response.status} - ${err}`)
     }
 
-    // Example scaffold for Fal integration (uncomment once you add FAL_KEY):
-    // import { fal } from "@fal-ai/serverless"
-    // const client = fal(process.env.FAL_KEY)
-    // const result = await client.invoke("fal-ai/fast-sdxl", {
-    //   input: { prompt, image_size: "square_hd" },
-    // })
-    // const imageUrl = result?.images?.[0]?.url
-    // return Response.json({ imageUrl: imageUrl || `/placeholder.svg?height=512&width=512&query=${encodeURIComponent(prompt)}` })
+    const result = await response.json()
 
-    return Response.json({
-      imageUrl: `/placeholder.svg?height=512&width=512&query=${encodeURIComponent(prompt)}`,
+    if (!result?.image) {
+      throw new Error("No image returned from Stability API")
+    }
+
+    // Convert base64 back into binary for direct serving
+    const imageBuffer = Buffer.from(result.image, "base64")
+
+    return new Response(imageBuffer, {
+      headers: {
+        "Content-Type": "image/png",
+        "Content-Disposition": "inline; filename=generated.png", // view in browser
+      },
     })
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e?.message ?? "Image error" }), { status: 500 })

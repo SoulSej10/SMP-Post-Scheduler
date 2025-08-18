@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "./ui/button"
-import { Badge } from "./ui/badge"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import type { Post } from "@/lib/types"
 
 type Props = {
   posts?: Post[]
+  onDateClick?: (date: Date, posts: Post[]) => void
 }
 
 function startOfMonth(d: Date) {
@@ -21,7 +22,7 @@ function getMonthMatrix(viewDate: Date) {
   const start = startOfMonth(viewDate)
   const end = endOfMonth(viewDate)
 
-  const startWeekDay = (start.getDay() + 6) % 7 
+  const startWeekDay = (start.getDay() + 6) % 7 // ISO-like: Monday=0
   const totalDays = end.getDate()
 
   const days: Date[] = []
@@ -42,7 +43,7 @@ function getMonthMatrix(viewDate: Date) {
   return weeks
 }
 
-export default function CalendarView({ posts = [] }: Props) {
+export default function CalendarView({ posts = [], onDateClick }: Props) {
   const [viewDate, setViewDate] = React.useState<Date>(new Date())
 
   const weeks = React.useMemo(() => getMonthMatrix(viewDate), [viewDate])
@@ -60,6 +61,12 @@ export default function CalendarView({ posts = [] }: Props) {
 
   const isSameMonth = (d: Date, ref: Date) => d.getMonth() === ref.getMonth() && d.getFullYear() === ref.getFullYear()
   const todayKey = new Date().toDateString()
+
+  const handleDateClick = (date: Date, dayPosts: Post[]) => {
+    if (dayPosts.length > 0 && onDateClick) {
+      onDateClick(date, dayPosts)
+    }
+  }
 
   return (
     <div>
@@ -98,39 +105,77 @@ export default function CalendarView({ posts = [] }: Props) {
           w.map((d, di) => {
             const key = d.toDateString()
             const dayPosts = postsByDay[key] || []
+            const hasScheduledPosts = dayPosts.some((p) => p.status === "scheduled")
+            const hasPostedPosts = dayPosts.some((p) => p.status === "posted")
+            const hasFailedPosts = dayPosts.some((p) => p.status === "failed")
+
+            // Determine background color based on post status
+            let bgColor = "bg-background"
+            if (hasFailedPosts) {
+              bgColor = "bg-red-50 hover:bg-red-100"
+            } else if (hasPostedPosts) {
+              bgColor = "bg-green-50 hover:bg-green-100"
+            } else if (hasScheduledPosts) {
+              bgColor = "bg-green-50 hover:bg-green-100" // Warm light green for scheduled posts
+            }
+
             return (
               <div
                 key={`${wi}-${di}`}
                 className={[
-                  "min-h-24 bg-background p-2",
-                  !isSameMonth(d, viewDate) ? "bg-muted/30" : "",
-                  key === todayKey ? "ring-1 ring-primary" : "",
+                  "min-h-24 p-2 transition-colors",
+                  bgColor,
+                  !isSameMonth(d, viewDate) ? "opacity-40" : "",
+                  key === todayKey ? "ring-2 ring-primary ring-inset" : "",
+                  dayPosts.length > 0 ? "cursor-pointer" : "",
                 ].join(" ")}
+                onClick={() => handleDateClick(d, dayPosts)}
               >
                 <div className="mb-1 flex items-center justify-between text-xs">
                   <span className="font-medium">{d.getDate()}</span>
-                  {key === todayKey && <Badge variant="secondary">Today</Badge>}
+                  <div className="flex items-center gap-1">
+                    {key === todayKey && (
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        Today
+                      </Badge>
+                    )}
+                    {dayPosts.length > 0 && (
+                      <Badge variant="outline" className="text-xs px-1 py-0">
+                        {dayPosts.length}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  {dayPosts.slice(0, 3).map((p) => (
-                    <div
-                      key={p.id}
-                      className="truncate rounded border px-2 py-1 text-xs"
-                      title={`${p.platform} • ${p.status}\n${p.content}`}
-                    >
-                      <span className="mr-1 rounded bg-muted px-1 py-0.5 uppercase">{p.platform.slice(0, 2)}</span>
-                      <span className="opacity-80">{p.content}</span>
-                    </div>
-                  ))}
-                  {dayPosts.length > 3 && (
-                    <div className="text-xs text-muted-foreground">+{dayPosts.length - 3} more</div>
-                  )}
-                </div>
+
+                {/* Show platform indicators instead of content */}
+                {dayPosts.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(new Set(dayPosts.map((p) => p.platform))).map((platform) => (
+                      <div
+                        key={platform}
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor:
+                            platform === "facebook"
+                              ? "#1877f2"
+                              : platform === "instagram"
+                                ? "#e4405f"
+                                : platform === "linkedin"
+                                  ? "#0077b5"
+                                  : "#6b7280",
+                        }}
+                        title={platform}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )
           }),
         )}
       </div>
+
+      <div className="mt-2 text-xs text-muted-foreground">Click on highlighted dates to view scheduled posts</div>
     </div>
   )
 }

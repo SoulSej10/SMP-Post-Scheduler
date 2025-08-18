@@ -1,22 +1,26 @@
 "use client"
 import { useRouter } from "next/navigation"
-import { Filter, Plus, CalendarIcon } from "lucide-react"
+import { Filter, Plus, CalendarIcon, Eye } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "../components/ui/sidebar"
-import { Button } from "../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
-import { Badge } from "../components/ui/badge"
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import { useEffect, useMemo, useState } from "react"
 import TopBar from "@/components/top-bar"
 import CalendarView from "@/components/calendar-view"
 import ScheduleModal from "@/components/schedule-modal"
+import PostViewModal from "@/components/post-view-modal"
 import { getSessionUser } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [openCreate, setOpenCreate] = useState(false)
+  const [openViewPosts, setOpenViewPosts] = useState(false)
+  const [selectedPosts, setSelectedPosts] = useState<Post[]>([])
+  const [viewTitle, setViewTitle] = useState("")
   const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null)
   const [statusFilter, setStatusFilter] = useState<("scheduled" | "posted" | "failed")[] | null>(null)
 
@@ -44,7 +48,23 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // filtering posts
+  // Refresh posts when modal closes (to reflect any changes)
+  useEffect(() => {
+    if (!openCreate) {
+      const user = getSessionUser()
+      if (!user) return
+      const raw = localStorage.getItem(`smp:posts:${user.id}`)
+      if (raw) {
+        try {
+          setPosts(JSON.parse(raw))
+        } catch {
+          setPosts([])
+        }
+      }
+    }
+  }, [openCreate])
+
+  // filtered posts
   const filtered = useMemo(() => {
     return posts.filter((p) => {
       const pf = !platformFilter || platformFilter.length === 0 || platformFilter.includes(p.platform)
@@ -54,6 +74,44 @@ export default function DashboardPage() {
   }, [posts, platformFilter, statusFilter])
 
   const ongoingCount = filtered.filter((p) => p.status === "scheduled").length
+
+  const handleDateClick = (date: Date, datePosts: Post[]) => {
+    setSelectedPosts(datePosts)
+    setViewTitle(`Posts for ${date.toLocaleDateString()}`)
+    setOpenViewPosts(true)
+  }
+
+  const handleViewPost = (post: Post) => {
+    setSelectedPosts([post])
+    setViewTitle(`Post Details`)
+    setOpenViewPosts(true)
+  }
+
+  const getPlatformColor = (platform: string) => {
+    switch (platform) {
+      case "facebook":
+        return "bg-blue-100 text-blue-800"
+      case "instagram":
+        return "bg-pink-100 text-pink-800"
+      case "linkedin":
+        return "bg-blue-100 text-blue-900"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return "bg-yellow-100 text-yellow-800"
+      case "posted":
+        return "bg-green-100 text-green-800"
+      case "failed":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -123,29 +181,56 @@ export default function DashboardPage() {
                       <TabsTrigger value="list">List</TabsTrigger>
                     </TabsList>
                     <TabsContent value="calendar" className="pt-4">
-                      <CalendarView posts={filtered} />
+                      <CalendarView posts={filtered} onDateClick={handleDateClick} />
                     </TabsContent>
                     <TabsContent value="list" className="pt-4">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {filtered.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No posts match the current filters.</p>
                         ) : (
                           filtered
                             .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
                             .map((p) => (
-                              <div
-                                key={p.id}
-                                className="flex items-center justify-between rounded-md border p-3 text-sm"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="uppercase">
-                                    {p.platform.slice(0, 2)}
-                                  </Badge>
-                                  <span className="font-medium">{new Date(p.scheduledAt).toLocaleString()}</span>
-                                </div>
-                                <span className="line-clamp-1 text-muted-foreground">{p.content}</span>
-                                <Badge variant={p.status === "scheduled" ? "secondary" : "outline"}>{p.status}</Badge>
-                              </div>
+                              <Card key={p.id} className="hover:shadow-md transition-shadow">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-4">
+                                    {/* Image thumbnail */}
+                                    {p.imageUrl && (
+                                      <div className="flex-shrink-0">
+                                        <img
+                                          src={p.imageUrl || "/placeholder.svg"}
+                                          alt="Post preview"
+                                          className="w-16 h-16 rounded-md object-cover"
+                                          crossOrigin="anonymous"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Badge className={getPlatformColor(p.platform)}>
+                                          {p.platform.charAt(0).toUpperCase() + p.platform.slice(1)}
+                                        </Badge>
+                                        <Badge className={getStatusColor(p.status)}>{p.status}</Badge>
+                                        <span className="text-sm text-muted-foreground">
+                                          {new Date(p.scheduledAt).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{p.content}</p>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleViewPost(p)}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        View Post
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
                             ))
                         )}
                       </div>
@@ -159,6 +244,7 @@ export default function DashboardPage() {
       </SidebarInset>
 
       <ScheduleModal open={openCreate} onOpenChange={setOpenCreate} />
+      <PostViewModal posts={selectedPosts} open={openViewPosts} onOpenChange={setOpenViewPosts} title={viewTitle} />
     </SidebarProvider>
   )
 }
