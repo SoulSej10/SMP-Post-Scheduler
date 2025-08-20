@@ -7,7 +7,7 @@ const SETTINGS_KEY = "smp:settings"
 type Settings = {
   n8nWebhookUrl?: string
 }
-//THIS IS A MOCK STORAGE
+
 export function getUsers(): User[] {
   try {
     const raw = localStorage.getItem(USERS_KEY)
@@ -63,8 +63,34 @@ export function getPostsForUser(userId: string): Post[] {
     return []
   }
 }
+
 export function savePosts(userId: string, posts: Post[]) {
   localStorage.setItem(`smp:posts:${userId}`, JSON.stringify(posts))
+}
+
+export function updatePost(userId: string, updatedPost: Post) {
+  const posts = getPostsForUser(userId)
+  const index = posts.findIndex((p) => p.id === updatedPost.id)
+  if (index !== -1) {
+    posts[index] = updatedPost
+    savePosts(userId, posts)
+    return true
+  }
+  return false
+}
+
+export function deletePost(userId: string, postId: string) {
+  const posts = getPostsForUser(userId)
+  const filtered = posts.filter((p) => p.id !== postId)
+  savePosts(userId, filtered)
+  return filtered.length < posts.length
+}
+
+export function deletePosts(userId: string, postIds: string[]) {
+  const posts = getPostsForUser(userId)
+  const filtered = posts.filter((p) => !postIds.includes(p.id))
+  savePosts(userId, filtered)
+  return filtered.length < posts.length
 }
 
 export function getSettings(): Settings {
@@ -75,6 +101,7 @@ export function getSettings(): Settings {
     return {}
   }
 }
+
 export function saveSettings(s: Settings) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
 }

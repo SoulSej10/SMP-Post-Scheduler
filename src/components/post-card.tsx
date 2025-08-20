@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { Badge } from "./ui/badge"
-import { Button } from "./ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { sendToN8n } from "@/lib/storage"
 import type { Post } from "@/lib/types"
 

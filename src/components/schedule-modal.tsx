@@ -9,6 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { ProgressBar } from "./progress-bar"
+import { LoadingSpinner } from "./loading-spinner"
+import { useToast } from "./toast-notification"
 import { createPostsForSchedule, hashContent, normalizeContent } from "@/lib/scheduling"
 import { getSessionUser, savePosts, getPostsForUser } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
@@ -21,13 +24,15 @@ type Props = {
 const ALL_PLATFORMS: Platform[] = ["facebook", "instagram", "linkedin"]
 
 export default function ScheduleModal({ open, onOpenChange }: Props) {
+  const { showToast } = useToast()
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
   const [endDate, setEndDate] = useState<string>(() =>
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   )
   const [frequency, setFrequency] = useState<number>(3) // posts per week
   const [platforms, setPlatforms] = useState<Platform[]>(["facebook", "instagram", "linkedin"])
   const [loading, setLoading] = useState<boolean>(false)
+  const [progress, setProgress] = useState<number>(0)
   const [resultCount, setResultCount] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
   const [useAIContent, setUseAIContent] = useState<boolean>(true)
@@ -114,6 +119,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     if (!open) {
       setError(null)
       setResultCount(0)
+      setProgress(0)
     }
   }, [open])
 
@@ -124,6 +130,8 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
   const handleCreate = async () => {
     setError(null)
     setLoading(true)
+    setProgress(0)
+
     try {
       const user = getSessionUser()
       if (!user) {
@@ -132,18 +140,40 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         return
       }
 
-      const baseCount = estimateTotalPosts(startDate, endDate, frequency)
+      const baseCount = estimateTotalPosts(startDate, endDate, frequency, platforms.length)
+
+      // Progress: 10% - Starting
+      setProgress(10)
 
       // Build the structured prompt from template
       const structuredPrompt = buildPromptFromTemplate(templateValues)
 
-      const textVariants = useAIContent
-        ? await generateTextVariants(structuredPrompt, baseCount)
-        : Array.from({ length: baseCount }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
+      // Progress: 30% - Generating content
+      setProgress(30)
 
-      // Build image prompt from template
-      const imagePrompt = buildImagePromptFromTemplate(templateValues)
-      const imageUrl = useAIImage ? await generateImage(imagePrompt) : "/generic-social-post.png"
+      const textVariants = useAIContent
+        ? await generateTextVariants(structuredPrompt, Math.ceil(baseCount / platforms.length))
+        : Array.from(
+            { length: Math.ceil(baseCount / platforms.length) },
+            (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`,
+          )
+
+      // Progress: 60% - Generating image
+      setProgress(60)
+
+      // Build image prompt from template and generate image
+      let imageUrl = "/default-social-post.png" // Default image
+      if (useAIImage) {
+        const imagePrompt = buildImagePromptFromTemplate(templateValues)
+        const generatedImageUrl = await generateImage(imagePrompt)
+        // Only use generated image if it's not the placeholder
+        if (generatedImageUrl && !generatedImageUrl.includes("placeholder.svg")) {
+          imageUrl = generatedImageUrl
+        }
+      }
+
+      // Progress: 80% - Creating posts
+      setProgress(80)
 
       // de-duplicate against existing content
       const existing = getPostsForUser(user.id)
@@ -172,20 +202,38 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         imageUrl,
       })
 
+      // Progress: 90% - Saving posts
+      setProgress(90)
+
       // persist
       const previous = getPostsForUser(user.id)
       const merged = dedupePosts([...previous, ...posts])
       savePosts(user.id, merged)
 
+      // Progress: 100% - Complete
+      setProgress(100)
       setResultCount(posts.length)
+
+      // Show success toast
+      showToast({
+        type: "success",
+        title: "Schedule Created!",
+        message: `Successfully created ${posts.length} posts across ${platforms.length} platform${platforms.length !== 1 ? "s" : ""}.`,
+      })
+
       // close after a short delay
       setTimeout(() => {
         setLoading(false)
         onOpenChange(false)
-      }, 500)
+      }, 1000)
     } catch (e: any) {
       setLoading(false)
       setError(e?.message ?? "Failed to create schedule")
+      showToast({
+        type: "error",
+        title: "Creation Failed",
+        message: e?.message ?? "Failed to create schedule",
+      })
     }
   }
 
@@ -195,11 +243,19 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Create AI Schedule</DialogTitle>
           <DialogDescription>
-            Generate scheduled posts across selected dates and platforms. Use advanced mode to to configure more details about post's AI content generation.
+            Generate scheduled posts across selected dates and platforms. AI features use the AI SDK and fall back
+            gracefully if keys are not configured.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
+          {/* Progress Bar - Show when loading */}
+          {loading && (
+            <div className="mb-6">
+              <ProgressBar progress={progress} />
+            </div>
+          )}
+
           {/* Schedule Settings */}
           <Card className="mb-6">
             <CardHeader>
@@ -210,11 +266,23 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="start">Start date</Label>
-                  <Input id="start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <Input
+                    id="start"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end">End date</Label>
-                  <Input id="end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <Input
+                    id="end"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="freq">Posts per week</Label>
@@ -225,6 +293,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                     max={14}
                     value={frequency}
                     onChange={(e) => setFrequency(Number(e.target.value || 1))}
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -234,11 +303,18 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                 <div className="flex flex-wrap gap-4">
                   {ALL_PLATFORMS.map((p) => (
                     <label key={p} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <Checkbox checked={platforms.includes(p)} onCheckedChange={() => togglePlatform(p)} />
+                      <Checkbox
+                        checked={platforms.includes(p)}
+                        onCheckedChange={() => togglePlatform(p)}
+                        disabled={loading}
+                      />
                       <span className="capitalize font-medium">{p}</span>
                     </label>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Expected posts: {estimateTotalPosts(startDate, endDate, frequency, platforms.length)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -257,6 +333,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                   size="sm"
                   onClick={() => setShowAdvanced(!showAdvanced)}
                   className="min-w-[120px]"
+                  disabled={loading}
                 >
                   {showAdvanced ? "Simple Mode" : "Advanced Mode"}
                 </Button>
@@ -273,6 +350,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       placeholder="e.g., New product launch, Company milestone, Industry insights"
                       value={templateValues.topic}
                       onChange={(e) => setTemplateValues((prev) => ({ ...prev, topic: e.target.value }))}
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -283,12 +361,14 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       placeholder="e.g., 50% faster performance, Available now, Limited time offer"
                       value={templateValues.keyPoints}
                       onChange={(e) => setTemplateValues((prev) => ({ ...prev, keyPoints: e.target.value }))}
+                      disabled={loading}
                     />
                   </div>
                 </div>
               ) : (
                 // Advanced mode - organized sections
                 <div className="space-y-6">
+                  {/* Basic Information */}
                   <div>
                     <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
                       Basic Information
@@ -300,6 +380,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                           value={templateValues.length}
                           onChange={(e) => setTemplateValues((prev) => ({ ...prev, length: e.target.value as any }))}
+                          disabled={loading}
                         >
                           {lengthOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -317,6 +398,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           onChange={(e) =>
                             setTemplateValues((prev) => ({ ...prev, platform: e.target.value as Platform }))
                           }
+                          disabled={loading}
                         >
                           <option value="facebook">Facebook</option>
                           <option value="instagram">Instagram</option>
@@ -331,6 +413,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           placeholder="e.g., SaaS, E-commerce, Healthcare, Education"
                           value={templateValues.niche}
                           onChange={(e) => setTemplateValues((prev) => ({ ...prev, niche: e.target.value }))}
+                          disabled={loading}
                         />
                       </div>
 
@@ -341,6 +424,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           placeholder="e.g., Product launch, Company news, Tips"
                           value={templateValues.topic}
                           onChange={(e) => setTemplateValues((prev) => ({ ...prev, topic: e.target.value }))}
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -362,6 +446,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           placeholder="e.g., 50% performance boost, Available now, Free trial"
                           value={templateValues.keyPoints}
                           onChange={(e) => setTemplateValues((prev) => ({ ...prev, keyPoints: e.target.value }))}
+                          disabled={loading}
                         />
                       </div>
 
@@ -373,6 +458,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                             placeholder="e.g., Small business owners, Tech professionals"
                             value={templateValues.audience}
                             onChange={(e) => setTemplateValues((prev) => ({ ...prev, audience: e.target.value }))}
+                            disabled={loading}
                           />
                         </div>
 
@@ -382,6 +468,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             value={templateValues.tone}
                             onChange={(e) => setTemplateValues((prev) => ({ ...prev, tone: e.target.value }))}
+                            disabled={loading}
                           >
                             {toneOptions.map((tone) => (
                               <option key={tone} value={tone}>
@@ -425,6 +512,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                                     }))
                                   }
                                 }}
+                                disabled={loading}
                               />
                               <span className="capitalize">{element}</span>
                             </label>
@@ -440,6 +528,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                             placeholder="e.g., Sign up today, Learn more, Get started"
                             value={templateValues.callToAction}
                             onChange={(e) => setTemplateValues((prev) => ({ ...prev, callToAction: e.target.value }))}
+                            disabled={loading}
                           />
                         </div>
 
@@ -451,6 +540,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                             onChange={(e) =>
                               setTemplateValues((prev) => ({ ...prev, perspective: e.target.value as any }))
                             }
+                            disabled={loading}
                           >
                             <option value="first-person">First Person (We/I)</option>
                             <option value="third-person">Third Person (They/Company)</option>
@@ -474,6 +564,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                         placeholder="e.g., productivity, automation, business, growth"
                         value={templateValues.keywords}
                         onChange={(e) => setTemplateValues((prev) => ({ ...prev, keywords: e.target.value }))}
+                        disabled={loading}
                       />
                       <p className="text-xs text-muted-foreground">
                         Separate keywords with commas. AI will generate relevant hashtags.
@@ -494,7 +585,11 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                   <CardDescription>Let AI create custom images for your posts</CardDescription>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={useAIImage} onCheckedChange={(v) => setUseAIImage(Boolean(v))} />
+                  <Checkbox
+                    checked={useAIImage}
+                    onCheckedChange={(v) => setUseAIImage(Boolean(v))}
+                    disabled={loading}
+                  />
                   <span className="font-medium">Generate Images</span>
                 </label>
               </div>
@@ -508,6 +603,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={templateValues.imageType}
                       onChange={(e) => setTemplateValues((prev) => ({ ...prev, imageType: e.target.value }))}
+                      disabled={loading}
                     >
                       {imageTypeOptions.map((type) => (
                         <option key={type} value={type}>
@@ -523,6 +619,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={templateValues.imageStyle}
                       onChange={(e) => setTemplateValues((prev) => ({ ...prev, imageStyle: e.target.value }))}
+                      disabled={loading}
                     >
                       {imageStyleOptions.map((style) => (
                         <option key={style} value={style}>
@@ -540,7 +637,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         <div className="flex justify-between items-center flex-shrink-0 border-t pt-4 mt-6">
           <div className="flex items-center gap-4">
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {resultCount > 0 && (
+            {resultCount > 0 && !loading && (
               <p className="text-sm text-green-600">
                 ✓ Created <Badge variant="secondary">{resultCount}</Badge> posts successfully!
               </p>
@@ -551,7 +648,14 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={loading || platforms.length === 0}>
-              {loading ? "Creating..." : "Create Schedule"}
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Creating...
+                </>
+              ) : (
+                "Create Schedule"
+              )}
             </Button>
           </div>
         </div>
@@ -560,13 +664,15 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
   )
 }
 
-function estimateTotalPosts(start: string, end: string, freqPerWeek: number) {
+function estimateTotalPosts(start: string, end: string, freqPerWeek: number, platformCount: number) {
   const msPerDay = 24 * 60 * 60 * 1000
   const s = new Date(start).getTime()
   const e = new Date(end).getTime()
   const days = Math.max(1, Math.ceil((e - s) / msPerDay) + 1)
-  const weeks = Math.max(1, Math.ceil(days / 7))
-  return weeks * Math.max(1, freqPerWeek)
+
+  // Calculate posts based on actual days, not rounded weeks
+  const postsPerDay = (freqPerWeek * platformCount) / 7
+  return Math.round(days * postsPerDay)
 }
 
 async function generateTextVariants(prompt: string, count: number): Promise<string[]> {
@@ -593,10 +699,10 @@ async function generateImage(prompt: string): Promise<string> {
     body: JSON.stringify({ prompt }),
   })
   if (!res.ok) {
-    return "/ai-placeholder.png"
+    return "/default-social-post.png"
   }
   const data = (await res.json()) as { imageUrl: string }
-  return data.imageUrl || "/ai-placeholder.png"
+  return data.imageUrl || "/default-social-post.png"
 }
 
 function generateVarietyTag(index: number) {
