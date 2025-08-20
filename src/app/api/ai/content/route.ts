@@ -13,19 +13,30 @@ export async function POST(req: NextRequest) {
       return Response.json({ variants })
     }
 
-    const { text } = await generateText({
-      model: cohere("command-r-plus"), 
-      system:
-        "You are an expert social media content creator. Generate engaging, platform-appropriate posts that match the specified requirements exactly. Focus on the target audience and maintain the requested tone throughout. Always include relevant hashtags when keywords are provided.",
-      prompt: prompt,
-    })
+    // Run multiple generations manually since `n` is not supported
+    const results = await Promise.all(
+      Array.from({ length: count }).map(async () => {
+        const { text } = await generateText({
+          model: cohere("command-r-plus"),
+          system:
+            "You are an expert social media content creator. Generate engaging, platform-appropriate posts that match the specified requirements exactly. Focus on the target audience and maintain the requested tone throughout. Always include relevant hashtags when keywords are provided.",
+          prompt,
+        })
+        return text
+      })
+    )
 
-    const variants = text
-      .split("\n")
-      .map((l) => l.replace(/^\s*\d+[).\s-]?\s*/, "").trim())
+    // Clean and filter
+    const variants = results
+      .flatMap((t: string) =>
+        t
+          .split("\n")
+          .map((line) => line.replace(/^\s*\d+[).\s-]?\s*/, "").trim())
+      )
       .filter(Boolean)
+      .slice(0, count)
 
-    return Response.json({ variants: variants.slice(0, count) })
+    return Response.json({ variants })
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e?.message ?? "AI error" }), { status: 500 })
   }
