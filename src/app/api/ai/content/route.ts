@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       model: cohere("command-r-plus"), 
       system:
         "You are an expert social media content creator. Generate engaging, platform-appropriate posts that match the specified requirements exactly. Focus on the target audience and maintain the requested tone throughout. Always include relevant hashtags when keywords are provided.",
-      prompt: `${prompt}\n\nGenerate ${count} distinct variations of this post. Each should be unique while maintaining the core message and requirements. Respond as a numbered list only.`,
+      prompt: prompt,
     })
 
     const variants = text

@@ -733,7 +733,7 @@ function dedupePosts(ps: Post[]): Post[] {
 function buildPromptFromTemplate(values: any): string {
   const elements = values.elements.length > 0 ? values.elements.join(", ") : "engaging content"
 
-  return `Create a ${values.length} social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} Do not ask me any follow-up questions — generate the full post in one go.`
+  return `${prompt}\n\nGenerate distinct variations of this post. Each should be unique while maintaining the core message and requirements. Respond as a numbered list only.\n\nCreate a ${values.length} social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} Do not ask me any follow-up questions — generate the full post in one go.`
 }
 
 function buildImagePromptFromTemplate(values: any): string {
