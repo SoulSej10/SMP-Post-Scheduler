@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const prompt: string = body?.prompt || "Write a short social post."
     const count: number = Math.max(1, Math.min(20, Number(body?.count || 5)))
-
+    console.log("✅ Parsed prompt:", prompt, "✅ Count:", count)
     if (!process.env.COHERE_API_KEY) {
       const variants = Array.from({ length: count }, (_, i) => `${prompt} (alt ${i + 1})`)
       return Response.json({ variants })
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
         const { text } = await generateText({
           model: cohere("command-r-plus"),
           system:
-            "You are an expert social media content creator. Generate engaging, platform-appropriate posts that match the specified requirements exactly. Focus on the target audience and maintain the requested tone throughout. Always include relevant hashtags when keywords are provided.",
-          prompt,
+            "You are an expert social media content creator. Always generate output as a numbered list. Each number must be a unique social media post variation. No intro or explanations.",
+          prompt: `${prompt}\n\nGenerate ${count} distinct variations of this post.`,
         })
         return text
       })
