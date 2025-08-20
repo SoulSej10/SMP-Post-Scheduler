@@ -22,7 +22,7 @@ function getMonthMatrix(viewDate: Date) {
   const start = startOfMonth(viewDate)
   const end = endOfMonth(viewDate)
 
-  const startWeekDay = (start.getDay() + 6) % 7 // ISO-like: Monday=0
+  const startWeekDay = (start.getDay() + 6) % 7 
   const totalDays = end.getDate()
 
   const days: Date[] = []
@@ -116,7 +116,7 @@ export default function CalendarView({ posts = [], onDateClick }: Props) {
             } else if (hasPostedPosts) {
               bgColor = "bg-green-50 hover:bg-green-100"
             } else if (hasScheduledPosts) {
-              bgColor = "bg-green-50 hover:bg-green-100" // Warm light green for scheduled posts
+              bgColor = "bg-green-50 hover:bg-green-100"
             }
 
             return (

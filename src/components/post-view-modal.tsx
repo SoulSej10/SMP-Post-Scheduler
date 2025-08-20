@@ -52,7 +52,6 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
 
   const handleBulkDeleteClick = () => {
     if (posts.length > 0 && onBulkDelete) {
-      // Get the date from the first post (assuming all posts are from the same date)
       const date = new Date(posts[0].scheduledAt)
       onBulkDelete(posts, date)
     }

@@ -11,7 +11,7 @@ export function createPostsForSchedule(args: {
 }): Post[] {
   const { userId, startDate, endDate, frequencyPerWeek, platforms, variants, imageUrl } = args
 
-  // Calculate total posts based on actual days, not rounded weeks
+  // Calculate total posts based on actual days
   const startMs = new Date(startDate).getTime()
   const endMs = new Date(endDate).getTime()
   const totalDays = Math.max(1, Math.ceil((endMs - startMs) / (24 * 60 * 60 * 1000)) + 1)
@@ -25,7 +25,6 @@ export function createPostsForSchedule(args: {
 
   const posts: Post[] = []
 
-  // Create posts with truly random platform assignment
   for (let i = 0; i < totalPosts && i < scheduleDates.length; i++) {
     // Randomly select platform for each post
     const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)]

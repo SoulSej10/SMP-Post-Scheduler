@@ -13,6 +13,6 @@ export type Post = {
   platform: Platform
   content: string
   imageUrl?: string
-  scheduledAt: string // ISO
+  scheduledAt: string 
   status: "scheduled" | "posted" | "failed"
 }

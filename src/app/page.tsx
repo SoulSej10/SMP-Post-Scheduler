@@ -66,7 +66,6 @@ function DashboardContent() {
     loadPosts()
   }, [])
 
-  // Refresh posts when modals close
   useEffect(() => {
     if (!openCreate) {
       loadPosts()

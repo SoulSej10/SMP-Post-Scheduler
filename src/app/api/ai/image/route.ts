@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       body: (() => {
         const form = new FormData()
         form.append("prompt", prompt)
-        form.append("output_format", "png") // png | jpeg | webp
+        form.append("output_format", "png")
         return form
       })(),
     })
@@ -30,13 +30,12 @@ export async function POST(req: NextRequest) {
       throw new Error("No image returned from Stability API")
     }
 
-    // Convert base64 back into binary for direct serving
     const imageBuffer = Buffer.from(result.image, "base64")
 
     return new Response(imageBuffer, {
       headers: {
         "Content-Type": "image/png",
-        "Content-Disposition": "inline; filename=generated.png", // view in browser
+        "Content-Disposition": "inline; filename=generated.png", 
       },
     })
   } catch (e: any) {
