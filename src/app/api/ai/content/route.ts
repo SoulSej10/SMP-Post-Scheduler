@@ -19,19 +19,13 @@ export async function POST(req: NextRequest) {
 
     // Stronger instruction to Gemini
     const geminiPrompt = `
-You are an expert social media content creator.
+      You are an expert social media content creator.
+      Always generate output as a numbered list.
+      Each number must be a unique social media post variation.
+      No intro or explanations.
 
-Generate ${count} distinct full-length social media posts based on this prompt:
-
-"${prompt}"
-
-Each post must:
-- Be at least 150 words
-- Start with a catchy hook with emojis 🎉🚀✨
-- Use bullet points (with emojis) to highlight key points
-- End with a strong call to action (CTA) and relevant hashtags
-- Be clearly separated as a numbered list (1., 2., etc.)
-Do not add explanations — only output the posts.
+      Prompt: ${prompt}
+      Generate ${count} distinct variations of this post.
     `
 
     const result = await model.generateContent(geminiPrompt)
