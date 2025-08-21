@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
       return Response.json({ variants })
     }
 
-    // Stronger uniqueness requirement
     const geminiPrompt = `
 You are an expert social media content creator.
 
@@ -36,13 +35,11 @@ Rules:
 
     const rawText = result.response.text()
 
-    // Split into posts
     let variants = rawText
-      .split(/\n(?=\d+[.)]\s)/) // split only at "1. ", "2. ", etc.
+      .split(/\n(?=\d+[.)]\s)/) 
       .map((block) => block.replace(/^\d+[.)]\s*/, "").trim())
       .filter(Boolean)
 
-    // ✅ Deduplicate posts in case AI still outputs similar text
     const seen = new Set<string>()
     variants = variants.filter((post) => {
       const normalized = post.toLowerCase().replace(/\s+/g, " ").trim()
@@ -51,7 +48,6 @@ Rules:
       return true
     })
 
-    // If deduplication removed some, request more until we hit count
     if (variants.length < count) {
       const extraPrompt = `
 Generate ${count - variants.length} MORE unique posts for:
