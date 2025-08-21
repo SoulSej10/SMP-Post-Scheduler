@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
       return Response.json({ variants })
     }
 
-    // Define character limits based on length
     const lengthInstructions = {
       short: "Keep each post under 100 characters. Be concise and punchy.",
       medium: "Keep each post between 100-200 characters. Provide good detail without being too long.",
