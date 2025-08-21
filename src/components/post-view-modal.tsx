@@ -52,6 +52,7 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
 
   const handleBulkDeleteClick = () => {
     if (posts.length > 0 && onBulkDelete) {
+      // Get the date from the first post (assuming all posts are from the same date)
       const date = new Date(posts[0].scheduledAt)
       onBulkDelete(posts, date)
     }
@@ -189,7 +190,12 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
 
                         {/* Content */}
                         <div className="mb-4">
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                          <div
+                            className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: formatPostContent(post.content),
+                            }}
+                          />
                         </div>
 
                         {/* Actions */}
@@ -260,4 +266,21 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
       )}
     </>
   )
+}
+
+function formatPostContent(content: string): string {
+  // Convert markdown-style formatting to HTML
+  const formatted = content
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // **bold**
+    .replace(/\*(.*?)\*/g, "<em>$1</em>") // *italic*
+    .replace(/__(.*?)__/g, "<u>$1</u>") // __underline__
+    .replace(/~~(.*?)~~/g, "<del>$1</del>") // ~~strikethrough~~
+    .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>') // `code`
+    .replace(
+      /https?:\/\/[^\s]+/g,
+      '<a href="$&" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$&</a>',
+    ) // URLs
+    .replace(/\n/g, "<br>") // Line breaks
+
+  return formatted
 }

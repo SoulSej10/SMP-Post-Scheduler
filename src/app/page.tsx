@@ -1,12 +1,13 @@
 "use client"
 import { useRouter } from "next/navigation"
-import { Filter, Plus, CalendarIcon, Eye } from "lucide-react"
+import { Filter, Plus, CalendarIcon, Eye, Share2, Trash2 } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useEffect, useMemo, useState } from "react"
 import TopBar from "@/components/top-bar"
 import CalendarView from "@/components/calendar-view"
@@ -16,7 +17,7 @@ import EditPostModal from "@/components/edit-post-modal"
 import DeleteConfirmationModal from "@/components/delete-confirmation-modal"
 import BulkDeleteModal from "@/components/bulk-delete-modal"
 import { ToastProvider, useToast } from "@/components/toast-notification"
-import { LoadingOverlay } from "@/components/loading-spinner"
+import { LoadingOverlay, LoadingSpinner } from "@/components/loading-spinner"
 import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 
@@ -37,6 +38,10 @@ function DashboardContent() {
   const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null)
   const [statusFilter, setStatusFilter] = useState<("scheduled" | "posted" | "failed")[] | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Bulk selection state
+  const [selectedPostIds, setSelectedPostIds] = useState<Set<string>>(new Set())
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
   // Redirect if not logged in
   useEffect(() => {
@@ -66,6 +71,7 @@ function DashboardContent() {
     loadPosts()
   }, [])
 
+  // Refresh posts when modals close
   useEffect(() => {
     if (!openCreate) {
       loadPosts()
@@ -181,6 +187,66 @@ function DashboardContent() {
     }, 800)
   }
 
+  // Bulk selection handlers
+  const handleSelectPost = (postId: string, checked: boolean) => {
+    const newSelected = new Set(selectedPostIds)
+    if (checked) {
+      newSelected.add(postId)
+    } else {
+      newSelected.delete(postId)
+    }
+    setSelectedPostIds(newSelected)
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPostIds(new Set(filtered.map((p) => p.id)))
+    } else {
+      setSelectedPostIds(new Set())
+    }
+  }
+
+  const handleBulkPostNow = async () => {
+    if (selectedPostIds.size === 0) return
+
+    setBulkActionLoading(true)
+
+    // Mock posting selected posts
+    setTimeout(() => {
+      setBulkActionLoading(false)
+      setSelectedPostIds(new Set())
+
+      showToast({
+        type: "success",
+        title: "Posts Sent!",
+        message: `Successfully sent ${selectedPostIds.size} posts to their respective platforms.`,
+      })
+    }, 2000)
+  }
+
+  const handleBulkDeleteSelected = async () => {
+    if (selectedPostIds.size === 0) return
+
+    const user = getSessionUser()
+    if (!user) return
+
+    setBulkActionLoading(true)
+
+    // Simulate async operation
+    setTimeout(() => {
+      deletePosts(user.id, Array.from(selectedPostIds))
+      loadPosts()
+      setSelectedPostIds(new Set())
+      setBulkActionLoading(false)
+
+      showToast({
+        type: "success",
+        title: "Posts Deleted",
+        message: `Successfully deleted ${selectedPostIds.size} posts.`,
+      })
+    }, 1000)
+  }
+
   const getPlatformColor = (platform: string) => {
     switch (platform) {
       case "facebook":
@@ -280,6 +346,53 @@ function DashboardContent() {
                       </TabsContent>
                       <TabsContent value="list" className="pt-4">
                         <div className="space-y-3">
+                          {/* Bulk Actions Bar */}
+                          {selectedPostIds.size > 0 && (
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">{selectedPostIds.size}</Badge>
+                                <span className="text-sm font-medium">posts selected</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={handleBulkPostNow}
+                                  disabled={bulkActionLoading}
+                                  className="flex items-center gap-2"
+                                >
+                                  {bulkActionLoading ? <LoadingSpinner size="sm" /> : <Share2 className="h-4 w-4" />}
+                                  Post Now
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleBulkDeleteSelected}
+                                  disabled={bulkActionLoading}
+                                  className="flex items-center gap-2 text-red-600 hover:text-red-700 bg-transparent"
+                                >
+                                  {bulkActionLoading ? <LoadingSpinner size="sm" /> : <Trash2 className="h-4 w-4" />}
+                                  Delete
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => setSelectedPostIds(new Set())}>
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Select All Checkbox */}
+                          {filtered.length > 0 && (
+                            <div className="flex items-center gap-2 pb-2 border-b">
+                              <Checkbox
+                                checked={selectedPostIds.size === filtered.length && filtered.length > 0}
+                                onCheckedChange={handleSelectAll}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                Select all ({filtered.length} posts)
+                              </span>
+                            </div>
+                          )}
+
                           {filtered.length === 0 ? (
                             <p className="text-sm text-muted-foreground">No posts match the current filters.</p>
                           ) : (
@@ -289,6 +402,14 @@ function DashboardContent() {
                                 <Card key={p.id} className="hover:shadow-md transition-shadow">
                                   <CardContent className="p-4">
                                     <div className="flex items-start gap-4">
+                                      {/* Selection Checkbox */}
+                                      <div className="flex-shrink-0 pt-1">
+                                        <Checkbox
+                                          checked={selectedPostIds.has(p.id)}
+                                          onCheckedChange={(checked) => handleSelectPost(p.id, Boolean(checked))}
+                                        />
+                                      </div>
+
                                       {/* Image thumbnail */}
                                       {p.imageUrl && (
                                         <div className="flex-shrink-0">

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,8 @@ const ALL_PLATFORMS: Platform[] = ["facebook", "instagram", "linkedin"]
 
 export default function ScheduleModal({ open, onOpenChange }: Props) {
   const { showToast } = useToast()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const progressRef = useRef<HTMLDivElement>(null)
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
   const [endDate, setEndDate] = useState<string>(() =>
     new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -50,6 +52,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     callToAction: "",
     perspective: "first-person" as "first-person" | "third-person",
     keywords: "",
+    link: "", // New link field
     imageType: "product photo" as string,
     imageStyle: "modern and clean" as string,
   })
@@ -123,6 +126,20 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     }
   }, [open])
 
+  // Auto-scroll to top when posts are created
+  useEffect(() => {
+    if (resultCount > 0 && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }, [resultCount])
+
+  // Auto-scroll to progress bar when loading starts
+  useEffect(() => {
+    if (loading && progressRef.current && scrollRef.current) {
+      progressRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [loading])
+
   const togglePlatform = (p: Platform) => {
     setPlatforms((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]))
   }
@@ -151,12 +168,11 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       // Progress: 30% - Generating content
       setProgress(30)
 
+      // Generate MORE content variants than needed to ensure uniqueness
+      const contentNeeded = Math.max(baseCount, 15) // Generate at least 15 unique variants
       const textVariants = useAIContent
-        ? await generateTextVariants(structuredPrompt, Math.ceil(baseCount / platforms.length))
-        : Array.from(
-            { length: Math.ceil(baseCount / platforms.length) },
-            (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`,
-          )
+        ? await generateTextVariants(structuredPrompt, contentNeeded, templateValues.length)
+        : Array.from({ length: contentNeeded }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
 
       // Progress: 60% - Generating image
       setProgress(60)
@@ -200,6 +216,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         platforms,
         variants: uniqueVariants,
         imageUrl,
+        link: templateValues.link, // Pass the link
       })
 
       // Progress: 90% - Saving posts
@@ -243,16 +260,24 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Create AI Schedule</DialogTitle>
           <DialogDescription>
-            Generate scheduled posts across selected dates and platforms. AI features use the AI SDK and fall back
+            Generate scheduled posts across selected dates and platforms. AI features use Gemini AI and fall back
             gracefully if keys are not configured.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-2">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto pr-2">
           {/* Progress Bar - Show when loading */}
           {loading && (
-            <div className="mb-6">
+            <div ref={progressRef} className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <ProgressBar progress={progress} />
+              <p className="text-sm text-blue-700 mt-2 text-center">
+                {progress < 30 && "Initializing content generation..."}
+                {progress >= 30 && progress < 60 && "Generating unique content variants..."}
+                {progress >= 60 && progress < 80 && "Creating custom images..."}
+                {progress >= 80 && progress < 90 && "Scheduling posts..."}
+                {progress >= 90 && progress < 100 && "Saving to your account..."}
+                {progress >= 100 && "Complete! 🎉"}
+              </p>
             </div>
           )}
 
@@ -341,7 +366,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
             </CardHeader>
             <CardContent>
               {!showAdvanced ? (
-                // Simple mode - just topic and key points
+                // Simple mode - just topic, key points, and link
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="topic">What's your topic?</Label>
@@ -363,6 +388,20 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       onChange={(e) => setTemplateValues((prev) => ({ ...prev, keyPoints: e.target.value }))}
                       disabled={loading}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="link">Link (optional)</Label>
+                    <Input
+                      id="link"
+                      type="url"
+                      placeholder="https://example.com/your-link"
+                      value={templateValues.link}
+                      onChange={(e) => setTemplateValues((prev) => ({ ...prev, link: e.target.value }))}
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Add a link to include in your posts (website, product page, etc.)
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -448,6 +487,21 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                           onChange={(e) => setTemplateValues((prev) => ({ ...prev, keyPoints: e.target.value }))}
                           disabled={loading}
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="link-adv">Link (optional)</Label>
+                        <Input
+                          id="link-adv"
+                          type="url"
+                          placeholder="https://example.com/your-link"
+                          value={templateValues.link}
+                          onChange={(e) => setTemplateValues((prev) => ({ ...prev, link: e.target.value }))}
+                          disabled={loading}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Add a link to include in your posts (website, product page, etc.)
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -675,11 +729,11 @@ function estimateTotalPosts(start: string, end: string, freqPerWeek: number, pla
   return Math.round(days * postsPerDay)
 }
 
-async function generateTextVariants(prompt: string, count: number): Promise<string[]> {
+async function generateTextVariants(prompt: string, count: number, length: string): Promise<string[]> {
   const res = await fetch("/api/ai/content", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt, count }),
+    body: JSON.stringify({ prompt, count, length }), // Pass length parameter
   })
   if (!res.ok) {
     // fallback to simple variations
@@ -732,8 +786,9 @@ function dedupePosts(ps: Post[]): Post[] {
 
 function buildPromptFromTemplate(values: any): string {
   const elements = values.elements.length > 0 ? values.elements.join(", ") : "engaging content"
+  const linkText = values.link ? `Include this link: ${values.link}` : ""
 
-  return `${prompt}\n\nGenerate distinct variations of this post. Each should be unique while maintaining the core message and requirements. Respond as a numbered list only.\n\nCreate a ${values.length} social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} Do not ask me any follow-up questions — generate the full post in one go.`
+  return `Create a ${values.length} social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} ${linkText} Use text formatting like **bold**, *italic*, and other decorations when appropriate. Do not ask me any follow-up questions — generate the full post in one go.`
 }
 
 function buildImagePromptFromTemplate(values: any): string {
