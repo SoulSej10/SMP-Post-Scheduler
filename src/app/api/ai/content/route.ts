@@ -54,7 +54,6 @@ Rules:
       .map((block) => block.replace(/^\d+[.)]\s*/, "").trim())
       .filter(Boolean)
 
-    // Filter variants by character count to ensure they meet the requirements
     const targetLength = length as "short" | "medium" | "long"
     variants = variants.filter((post) => {
       const charCount = post.length
