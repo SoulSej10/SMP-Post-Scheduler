@@ -169,7 +169,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(30)
 
       // Generate MORE content variants than needed to ensure uniqueness
-      const contentNeeded = Math.max(baseCount, 15) // Generate at least 15 unique variants
+      const contentNeeded = Math.max(baseCount, 15) 
       const textVariants = useAIContent
         ? await generateTextVariants(structuredPrompt, contentNeeded, templateValues.length)
         : Array.from({ length: contentNeeded }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
@@ -200,7 +200,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         if (!seen.has(key) && !uniqueVariants.some((u) => hashContent(u) === key)) {
           uniqueVariants.push(v)
         } else {
-          // try to lightly vary content to remain unique
           const alt = `${v}\n\n${generateVarietyTag(uniqueVariants.length)}`
           if (!seen.has(hashContent(alt))) {
             uniqueVariants.push(alt)
@@ -216,13 +215,12 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         platforms,
         variants: uniqueVariants,
         imageUrl,
-        link: templateValues.link, // Pass the link
+        link: templateValues.link, 
       })
 
       // Progress: 90% - Saving posts
       setProgress(90)
 
-      // persist
       const previous = getPostsForUser(user.id)
       const merged = dedupePosts([...previous, ...posts])
       savePosts(user.id, merged)
@@ -736,7 +734,6 @@ async function generateTextVariants(prompt: string, count: number, length: strin
     body: JSON.stringify({ prompt, count, length }), // Pass length parameter
   })
   if (!res.ok) {
-    // fallback to simple variations
     return Array.from({ length: count }, (_, i) => `${prompt} (variant ${i + 1})`)
   }
   const data = (await res.json()) as { variants: string[] }

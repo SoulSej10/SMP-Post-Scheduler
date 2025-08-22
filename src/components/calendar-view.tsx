@@ -109,7 +109,6 @@ export default function CalendarView({ posts = [], onDateClick }: Props) {
             const hasPostedPosts = dayPosts.some((p) => p.status === "posted")
             const hasFailedPosts = dayPosts.some((p) => p.status === "failed")
 
-            // Determine background color based on post status
             let bgColor = "bg-background"
             if (hasFailedPosts) {
               bgColor = "bg-red-50 hover:bg-red-100"
@@ -147,7 +146,6 @@ export default function CalendarView({ posts = [], onDateClick }: Props) {
                   </div>
                 </div>
 
-                {/* Show platform indicators instead of content */}
                 {dayPosts.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {Array.from(new Set(dayPosts.map((p) => p.platform))).map((platform) => (
