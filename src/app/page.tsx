@@ -1,4 +1,5 @@
 "use client"
+import { Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Filter, Plus, CalendarIcon } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -484,7 +485,9 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <ToastProvider>
-      <DashboardContent />
+      <Suspense fallback={<div>Loading dashboard...</div>}>
+        <DashboardContent />
+      </Suspense>
     </ToastProvider>
   )
 }
