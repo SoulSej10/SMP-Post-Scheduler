@@ -1,5 +1,7 @@
 "use client"
 import { Suspense } from "react"
+import type React from "react"
+
 import { useRouter, useSearchParams } from "next/navigation"
 import { Filter, Plus, CalendarIcon } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -19,6 +21,7 @@ import { ToastProvider, useToast } from "@/components/toast-notification"
 import { LoadingOverlay } from "@/components/loading-spinner"
 import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
+import PostsDataTable from "@/components/posts-data-table"
 
 function SearchParamsProvider({ children }: { children: (platformFilter: Platform | null) => React.ReactNode }) {
   const searchParams = useSearchParams()
@@ -400,7 +403,9 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
                   {/* Calendar Overview - Dashboard only */}
                   <div className="mb-6">
-                    <h2 className="text-xl font-semibold mb-4">{currentYear} Calendar Overview</h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">{currentYear} Calendar Overview</h2>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {allOrderedMonths.map(({ month, year, isInactive }) => (
                         <MiniCalendar
@@ -415,6 +420,14 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                       ))}
                     </div>
                   </div>
+
+                  {/* Data Table - Dashboard only */}
+                  <PostsDataTable
+                    posts={filtered}
+                    onViewPost={handleViewPost}
+                    onEditPost={handleEditPost}
+                    onDeletePost={handleDeletePost}
+                  />
                 </>
               ) : (
                 // Platform Filtering View - Show relevant months and schedule list

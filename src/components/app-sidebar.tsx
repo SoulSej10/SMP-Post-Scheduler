@@ -1,6 +1,7 @@
 "use client"
 
-import { Home, Settings, CalendarCheck2, Facebook, Instagram, Linkedin, PenTool } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Home, Settings, CalendarCheck2, Facebook, Instagram, Linkedin, PenTool, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
@@ -16,11 +17,23 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { getSessionUser, logoutLocal } from "@/lib/storage"
 
 export function AppSidebar() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPlatform = searchParams.get("platform")
+
+  // ✅ local state for the username to avoid hydration mismatch
+  const [userName, setUserName] = useState("User")
+
+  useEffect(() => {
+    const user = getSessionUser()
+    if (user?.name) {
+      setUserName(user.name)
+    }
+  }, [])
 
   const mainItems = [
     { title: "Dashboard", href: "/", icon: Home },
@@ -36,10 +49,8 @@ export function AppSidebar() {
   const handlePlatformClick = (platform: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (currentPlatform === platform) {
-      // If clicking the same platform, remove the filter
       params.delete("platform")
     } else {
-      // Set the new platform filter
       params.set("platform", platform)
     }
 
@@ -48,7 +59,6 @@ export function AppSidebar() {
   }
 
   const handleAllSchedulesClick = () => {
-    // Clear all filters and go to dashboard
     router.push("/")
   }
 
@@ -112,7 +122,34 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter />
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton className="w-full">
+                  <User className="h-4 w-4" />
+                  {/* ✅ use state instead of calling getSessionUser() directly */}
+                  <span>{userName}</span>
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-(--radix-popper-anchor-width)">
+                <DropdownMenuItem onClick={() => router.push("/settings")}>Settings</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    logoutLocal()
+                    router.push("/login")
+                  }}
+                  className="text-red-600"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
