@@ -76,7 +76,7 @@ export default function SettingsPage() {
               <CardTitle>Automation & Integrations</CardTitle>
               <CardDescription>Configure external services and automation workflows.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            {/* <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="webhook">n8n Webhook URL</Label>
                 <Input
@@ -92,7 +92,7 @@ export default function SettingsPage() {
               <Button onClick={onSave} disabled={saving}>
                 {saving ? "Saving..." : "Save Integration Settings"}
               </Button>
-            </CardContent>
+            </CardContent> */}
           </Card>
         </main>
       </SidebarInset>
