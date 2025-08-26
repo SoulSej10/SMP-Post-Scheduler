@@ -1,9 +1,10 @@
 "use client"
 import { Suspense } from "react"
 import type React from "react"
+import MobileCalendarFilter from "@/components/mobile-calendar-filter"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { Filter, Plus, CalendarIcon } from "lucide-react"
+import { Filter, Plus } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -303,7 +304,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
             <div className="flex items-center gap-2 border-b bg-background px-4 py-2">
               <SidebarTrigger />
               <div className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
                 <span className="font-medium">{isDashboardView ? "Dashboard" : "Schedules"}</span>
                 {platformFilter && (
                   <Badge variant="outline" className="ml-2">
@@ -314,29 +314,57 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
             </div>
 
             {/* Top Action Bar */}
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="flex items-center gap-4">
-                <h1 className="text-lg font-semibold">
-                  {platformFilter ? `${getPlatformName(platformFilter)} Schedules` : "Dashboard Overview"}
-                </h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>
-                    Ongoing: <Badge variant="secondary">{ongoingCount}</Badge>
-                  </span>
-                  <span>
-                    Total: <Badge variant="outline">{filtered.length}</Badge>
-                  </span>
+            <div className="border-b px-4 py-3">
+              {/* Mobile Layout */}
+              <div className="flex flex-col gap-3 sm:hidden">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-lg font-semibold">
+                    {platformFilter ? `${getPlatformName(platformFilter)} Schedules` : "Dashboard Overview"}
+                  </h1>
+                  <Button size="sm" onClick={() => setOpenCreate(true)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span>
+                      Ongoing: <Badge variant="secondary">{ongoingCount}</Badge>
+                    </span>
+                    <span>
+                      Total: <Badge variant="outline">{filtered.length}</Badge>
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="sm">
+                    <Filter className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setOpenCreate(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Schedule
-                </Button>
-                <Button variant="ghost">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filters
-                </Button>
+
+              {/* Desktop Layout */}
+              <div className="hidden sm:flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <h1 className="text-lg font-semibold">
+                    {platformFilter ? `${getPlatformName(platformFilter)} Schedules` : "Dashboard Overview"}
+                  </h1>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>
+                      Ongoing: <Badge variant="secondary">{ongoingCount}</Badge>
+                    </span>
+                    <span>
+                      Total: <Badge variant="outline">{filtered.length}</Badge>
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setOpenCreate(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Schedule
+                  </Button>
+                  <Button variant="ghost">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -406,7 +434,19 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-xl font-semibold">{currentYear} Calendar Overview</h2>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+                    {/* Mobile View - Only Active Calendars */}
+                    <div className="sm:hidden mb-4">
+                      <MobileCalendarFilter
+                        posts={filtered}
+                        onDateClick={handleDateClick}
+                        currentYear={currentYear}
+                        currentMonth={currentMonth}
+                      />
+                    </div>
+
+                    {/* Desktop View - All Calendars */}
+                    <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {allOrderedMonths.map(({ month, year, isInactive }) => (
                         <MiniCalendar
                           key={`${year}-${month}`}

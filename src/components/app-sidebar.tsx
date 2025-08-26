@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Home, Settings, CalendarCheck2, Facebook, Instagram, Linkedin, PenTool, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -24,8 +24,6 @@ export function AppSidebar() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPlatform = searchParams.get("platform")
-
-  // ✅ local state for the username to avoid hydration mismatch
   const [userName, setUserName] = useState("User")
 
   useEffect(() => {
@@ -49,8 +47,10 @@ export function AppSidebar() {
   const handlePlatformClick = (platform: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (currentPlatform === platform) {
+      // If clicking the same platform, remove the filter
       params.delete("platform")
     } else {
+      // Set the new platform filter
       params.set("platform", platform)
     }
 
@@ -59,23 +59,24 @@ export function AppSidebar() {
   }
 
   const handleAllSchedulesClick = () => {
+    // Clear all filters and go to dashboard
     router.push("/")
   }
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg">
+        <div className="flex items-center gap-2 py-2 px-0">
+          <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg flex-shrink-0">
             <PenTool className="h-5 w-5 text-primary-foreground" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="font-bold text-lg">Pen Master</span>
             <span className="text-xs text-muted-foreground">Social Scheduler</span>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="leading-3">
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,9 +128,8 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="w-full">
+                <SidebarMenuButton className="w-full" tooltip={userName}>
                   <User className="h-4 w-4" />
-                  {/* ✅ use state instead of calling getSessionUser() directly */}
                   <span>{userName}</span>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>

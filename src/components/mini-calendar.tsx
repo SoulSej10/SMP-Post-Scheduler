@@ -116,14 +116,14 @@ export default function MiniCalendar({
               const hasPostedPosts = dayPosts.some((p) => p.status === "posted")
               const hasFailedPosts = dayPosts.some((p) => p.status === "failed")
 
-              // Determine background color based on post status
-              let bgColor = ""
+              // Determine styling classes based on post status
+              let dateClasses = ""
               if (hasFailedPosts) {
-                bgColor = isInactive ? "bg-red-100/50 hover:bg-red-200/50" : "bg-red-100 hover:bg-red-200"
+                dateClasses = "calendar-date-failed"
               } else if (hasPostedPosts) {
-                bgColor = isInactive ? "bg-green-100/50 hover:bg-green-200/50" : "bg-green-100 hover:bg-green-200"
+                dateClasses = "calendar-date-posted"
               } else if (hasScheduledPosts) {
-                bgColor = isInactive ? "bg-blue-100/50 hover:bg-blue-200/50" : "bg-blue-100 hover:bg-blue-200"
+                dateClasses = "calendar-date-scheduled"
               }
 
               const isToday = key === todayKey && isCurrentMonth
@@ -132,21 +132,31 @@ export default function MiniCalendar({
                 <div
                   key={`${wi}-${di}`}
                   className={[
-                    "aspect-square flex items-center justify-center text-xs cursor-pointer transition-colors relative",
-                    bgColor || (isInactive ? "hover:bg-muted/50" : "hover:bg-gray-100"),
+                    "aspect-square flex items-center justify-center text-xs cursor-pointer transition-all duration-200 relative rounded-sm",
+                    dateClasses || (isInactive ? "hover:bg-muted/50" : "hover:bg-accent"),
                     !isSameMonth(d, year, month) ? "opacity-40" : "",
                     isToday ? "ring-2 ring-primary ring-inset font-bold" : "",
                     isInactive && !dayPosts.length ? "cursor-default" : "",
+                    dayPosts.length > 0 ? "font-medium" : "",
                   ].join(" ")}
                   onClick={() => handleDateClick(d, dayPosts)}
                 >
                   <span className="relative z-10">{d.getDate()}</span>
                   {dayPosts.length > 0 && (
-                    <div
-                      className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ${
-                        isInactive ? "bg-primary/60" : "bg-primary"
-                      }`}
-                    />
+                    <div className="absolute bottom-0 right-0 flex gap-0.5">
+                      {Array.from(new Set(dayPosts.map((p) => p.platform))).map((platform) => (
+                        <div
+                          key={platform}
+                          className={[
+                            "w-1.5 h-1.5 rounded-full",
+                            platform === "facebook" ? "platform-dot-facebook" : "",
+                            platform === "instagram" ? "platform-dot-instagram" : "",
+                            platform === "linkedin" ? "platform-dot-linkedin" : "",
+                          ].join(" ")}
+                          title={platform}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               )
