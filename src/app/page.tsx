@@ -20,10 +20,20 @@ import { LoadingOverlay } from "@/components/loading-spinner"
 import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 
-function DashboardContent() {
-  const router = useRouter()
+function SearchParamsProvider({ children }: { children: (platformFilter: Platform | null) => React.ReactNode }) {
   const searchParams = useSearchParams()
+  const platformFilter = searchParams.get("platform") as Platform | null
+  return <>{children(platformFilter)}</>
+}
+
+type DashboardContentProps = {
+  platformFilter: Platform | null
+}
+
+function DashboardContent({ platformFilter }: DashboardContentProps) {
+  const router = useRouter()
   const { showToast } = useToast()
+
   const [openCreate, setOpenCreate] = useState(false)
   const [openViewPosts, setOpenViewPosts] = useState(false)
   const [openEditPost, setOpenEditPost] = useState(false)
@@ -37,8 +47,6 @@ function DashboardContent() {
   const [viewTitle, setViewTitle] = useState("")
   const [loading, setLoading] = useState(false)
 
-  // Get platform filter from URL
-  const platformFilter = searchParams.get("platform") as Platform | null
   const isDashboardView = !platformFilter
 
   // Redirect if not logged in
@@ -486,7 +494,9 @@ export default function DashboardPage() {
   return (
     <ToastProvider>
       <Suspense fallback={<div>Loading dashboard...</div>}>
-        <DashboardContent />
+        <SearchParamsProvider>
+          {(platformFilter) => <DashboardContent platformFilter={platformFilter} />}
+        </SearchParamsProvider>
       </Suspense>
     </ToastProvider>
   )
