@@ -1,7 +1,7 @@
 "use client"
-import { Button } from "./ui/button"
-import { Badge } from "./ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown, SlidersHorizontal } from "lucide-react"
 import type { Platform } from "@/lib/types"
 

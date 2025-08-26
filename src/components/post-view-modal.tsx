@@ -52,11 +52,13 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
 
   const handleBulkDeleteClick = () => {
     if (posts.length > 0 && onBulkDelete) {
+      // Get the date from the first post (assuming all posts are from the same date)
       const date = new Date(posts[0].scheduledAt)
       onBulkDelete(posts, date)
     }
   }
 
+  // Check if all posts are from the same date
   const isSameDate =
     posts.length > 1 &&
     posts.every((post) => {
@@ -269,16 +271,16 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
 function formatPostContent(content: string): string {
   // Convert markdown-style formatting to HTML
   const formatted = content
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") 
-    .replace(/\*(.*?)\*/g, "<em>$1</em>") 
-    .replace(/__(.*?)__/g, "<u>$1</u>")
-    .replace(/~~(.*?)~~/g, "<del>$1</del>") 
-    .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>') 
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // **bold**
+    .replace(/\*(.*?)\*/g, "<em>$1</em>") // *italic*
+    .replace(/__(.*?)__/g, "<u>$1</u>") // __underline__
+    .replace(/~~(.*?)~~/g, "<del>$1</del>") // ~~strikethrough~~
+    .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>') // `code`
     .replace(
       /https?:\/\/[^\s]+/g,
       '<a href="$&" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$&</a>',
-    ) 
-    .replace(/\n/g, "<br>") 
+    ) // URLs
+    .replace(/\n/g, "<br>") // Line breaks
 
   return formatted
 }

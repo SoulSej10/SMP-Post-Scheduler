@@ -1,28 +1,27 @@
 "use client"
-import { useRouter } from "next/navigation"
-import { Filter, Plus, CalendarIcon, Eye, Share2, Trash2 } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Filter, Plus, CalendarIcon } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useEffect, useMemo, useState } from "react"
-import TopBar from "@/components/top-bar"
-import CalendarView from "@/components/calendar-view"
+import MiniCalendar from "@/components/mini-calendar"
+import ScheduleList from "@/components/schedule-list"
 import ScheduleModal from "@/components/schedule-modal"
 import PostViewModal from "@/components/post-view-modal"
 import EditPostModal from "@/components/edit-post-modal"
 import DeleteConfirmationModal from "@/components/delete-confirmation-modal"
 import BulkDeleteModal from "@/components/bulk-delete-modal"
 import { ToastProvider, useToast } from "@/components/toast-notification"
-import { LoadingOverlay, LoadingSpinner } from "@/components/loading-spinner"
+import { LoadingOverlay } from "@/components/loading-spinner"
 import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 
 function DashboardContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { showToast } = useToast()
   const [openCreate, setOpenCreate] = useState(false)
   const [openViewPosts, setOpenViewPosts] = useState(false)
@@ -35,13 +34,11 @@ function DashboardContent() {
   const [bulkDeletePosts, setBulkDeletePosts] = useState<Post[]>([])
   const [bulkDeleteDate, setBulkDeleteDate] = useState<Date | null>(null)
   const [viewTitle, setViewTitle] = useState("")
-  const [platformFilter, setPlatformFilter] = useState<Platform[] | null>(null)
-  const [statusFilter, setStatusFilter] = useState<("scheduled" | "posted" | "failed")[] | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Bulk selection state
-  const [selectedPostIds, setSelectedPostIds] = useState<Set<string>>(new Set())
-  const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  // Get platform filter from URL
+  const platformFilter = searchParams.get("platform") as Platform | null
+  const isDashboardView = !platformFilter
 
   // Redirect if not logged in
   useEffect(() => {
@@ -78,21 +75,114 @@ function DashboardContent() {
     }
   }, [openCreate])
 
-  // filtered posts
+  // filtered posts based on platform from sidebar
   const filtered = useMemo(() => {
     return posts.filter((p) => {
-      const pf = !platformFilter || platformFilter.length === 0 || platformFilter.includes(p.platform)
-      const sf = !statusFilter || statusFilter.length === 0 || statusFilter.includes(p.status)
-      return pf && sf
+      return !platformFilter || p.platform === platformFilter
     })
-  }, [posts, platformFilter, statusFilter])
+  }, [posts, platformFilter])
 
   const ongoingCount = filtered.filter((p) => p.status === "scheduled").length
 
+  // Generate months for dashboard view (all months)
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth()
+
+  const allOrderedMonths = useMemo(() => {
+    const months = []
+
+    // Current month first
+    months.push({
+      month: currentMonth,
+      year: currentYear,
+      name: new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" }),
+      isInactive: false,
+    })
+
+    // Upcoming months
+    for (let i = currentMonth + 1; i < 12; i++) {
+      months.push({
+        month: i,
+        year: currentYear,
+        name: new Date(currentYear, i).toLocaleString("default", { month: "long" }),
+        isInactive: false,
+      })
+    }
+
+    // Previous months (at the bottom)
+    for (let i = 0; i < currentMonth; i++) {
+      months.push({
+        month: i,
+        year: currentYear,
+        name: new Date(currentYear, i).toLocaleString("default", { month: "long" }),
+        isInactive: true,
+      })
+    }
+
+    return months
+  }, [currentMonth, currentYear])
+
+  // Generate months for platform filtering view (only relevant months)
+  const platformRelevantMonths = useMemo(() => {
+    if (!platformFilter) return []
+
+    const relevantMonths = []
+    const now = new Date()
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    // Check if current month has posts for this platform
+    const currentMonthPosts = filtered.filter((p) => {
+      const postDate = new Date(p.scheduledAt)
+      return postDate >= currentMonthStart && postDate < nextMonthStart
+    })
+
+    if (currentMonthPosts.length > 0) {
+      relevantMonths.push({
+        month: currentMonth,
+        year: currentYear,
+        name: new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" }),
+        isInactive: false,
+      })
+    }
+
+    // Check if next month has posts for this platform (if we're not in December)
+    if (currentMonth < 11) {
+      const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1)
+      const nextMonthPosts = filtered.filter((p) => {
+        const postDate = new Date(p.scheduledAt)
+        return postDate >= nextMonthStart && postDate < nextMonthEnd
+      })
+
+      if (nextMonthPosts.length > 0) {
+        relevantMonths.push({
+          month: currentMonth + 1,
+          year: currentYear,
+          name: new Date(currentYear, currentMonth + 1).toLocaleString("default", { month: "long" }),
+          isInactive: false,
+        })
+      }
+    }
+
+    // If no posts in current or next month, show current month anyway
+    if (relevantMonths.length === 0) {
+      relevantMonths.push({
+        month: currentMonth,
+        year: currentYear,
+        name: new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" }),
+        isInactive: false,
+      })
+    }
+
+    return relevantMonths
+  }, [platformFilter, filtered, currentMonth, currentYear])
+
   const handleDateClick = (date: Date, datePosts: Post[]) => {
-    setSelectedPosts(datePosts)
-    setViewTitle(`Posts for ${date.toLocaleDateString()}`)
-    setOpenViewPosts(true)
+    if (datePosts.length > 0) {
+      setSelectedPosts(datePosts)
+      setViewTitle(`Posts for ${date.toLocaleDateString()}`)
+      setOpenViewPosts(true)
+    }
   }
 
   const handleViewPost = (post: Post) => {
@@ -187,90 +277,9 @@ function DashboardContent() {
     }, 800)
   }
 
-  // Bulk selection handlers
-  const handleSelectPost = (postId: string, checked: boolean) => {
-    const newSelected = new Set(selectedPostIds)
-    if (checked) {
-      newSelected.add(postId)
-    } else {
-      newSelected.delete(postId)
-    }
-    setSelectedPostIds(newSelected)
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedPostIds(new Set(filtered.map((p) => p.id)))
-    } else {
-      setSelectedPostIds(new Set())
-    }
-  }
-
-  const handleBulkPostNow = async () => {
-    if (selectedPostIds.size === 0) return
-
-    setBulkActionLoading(true)
-
-    // Mock posting selected posts
-    setTimeout(() => {
-      setBulkActionLoading(false)
-      setSelectedPostIds(new Set())
-
-      showToast({
-        type: "success",
-        title: "Posts Sent!",
-        message: `Successfully sent ${selectedPostIds.size} posts to their respective platforms.`,
-      })
-    }, 2000)
-  }
-
-  const handleBulkDeleteSelected = async () => {
-    if (selectedPostIds.size === 0) return
-
-    const user = getSessionUser()
-    if (!user) return
-
-    setBulkActionLoading(true)
-
-    // Simulate async operation
-    setTimeout(() => {
-      deletePosts(user.id, Array.from(selectedPostIds))
-      loadPosts()
-      setSelectedPostIds(new Set())
-      setBulkActionLoading(false)
-
-      showToast({
-        type: "success",
-        title: "Posts Deleted",
-        message: `Successfully deleted ${selectedPostIds.size} posts.`,
-      })
-    }, 1000)
-  }
-
-  const getPlatformColor = (platform: string) => {
-    switch (platform) {
-      case "facebook":
-        return "bg-blue-100 text-blue-800"
-      case "instagram":
-        return "bg-pink-100 text-pink-800"
-      case "linkedin":
-        return "bg-blue-100 text-blue-900"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "bg-yellow-100 text-yellow-800"
-      case "posted":
-        return "bg-green-100 text-green-800"
-      case "failed":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const getPlatformName = (platform: Platform | null) => {
+    if (!platform) return "All Platforms"
+    return platform.charAt(0).toUpperCase() + platform.slice(1)
   }
 
   return (
@@ -283,178 +292,155 @@ function DashboardContent() {
               <SidebarTrigger />
               <div className="flex items-center gap-2">
                 <CalendarIcon className="h-5 w-5" />
-                <span className="font-medium">Scheduler</span>
+                <span className="font-medium">{isDashboardView ? "Dashboard" : "Schedules"}</span>
+                {platformFilter && (
+                  <Badge variant="outline" className="ml-2">
+                    {getPlatformName(platformFilter)}
+                  </Badge>
+                )}
               </div>
             </div>
 
-            <TopBar
-              onCreate={() => setOpenCreate(true)}
-              platformFilter={platformFilter ?? []}
-              onPlatformFilterChange={setPlatformFilter}
-              statusFilter={statusFilter ?? []}
-              onStatusFilterChange={setStatusFilter}
-            />
-
-            <main className="container mx-auto p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Card className="col-span-1">
-                  <CardHeader>
-                    <CardTitle>Overview</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Ongoing schedules</span>
-                      <Badge variant="secondary">{ongoingCount}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Total posts</span>
-                      <Badge variant="outline">{filtered.length}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Platforms</span>
-                      <div className="flex gap-1">
-                        <Badge variant="outline">FB</Badge>
-                        <Badge variant="outline">IG</Badge>
-                        <Badge variant="outline">IN</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="col-span-1 md:col-span-2">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Quick Actions</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" onClick={() => setOpenCreate(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Schedule
-                      </Button>
-                      <Button variant="ghost">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filters
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Tabs defaultValue="calendar">
-                      <TabsList>
-                        <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                        <TabsTrigger value="list">List</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="calendar" className="pt-4">
-                        <CalendarView posts={filtered} onDateClick={handleDateClick} />
-                      </TabsContent>
-                      <TabsContent value="list" className="pt-4">
-                        <div className="space-y-3">
-                          {/* Bulk Actions Bar */}
-                          {selectedPostIds.size > 0 && (
-                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary">{selectedPostIds.size}</Badge>
-                                <span className="text-sm font-medium">posts selected</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={handleBulkPostNow}
-                                  disabled={bulkActionLoading}
-                                  className="flex items-center gap-2"
-                                >
-                                  {bulkActionLoading ? <LoadingSpinner size="sm" /> : <Share2 className="h-4 w-4" />}
-                                  Post Now
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleBulkDeleteSelected}
-                                  disabled={bulkActionLoading}
-                                  className="flex items-center gap-2 text-red-600 hover:text-red-700 bg-transparent"
-                                >
-                                  {bulkActionLoading ? <LoadingSpinner size="sm" /> : <Trash2 className="h-4 w-4" />}
-                                  Delete
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => setSelectedPostIds(new Set())}>
-                                  Clear
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Select All Checkbox */}
-                          {filtered.length > 0 && (
-                            <div className="flex items-center gap-2 pb-2 border-b">
-                              <Checkbox
-                                checked={selectedPostIds.size === filtered.length && filtered.length > 0}
-                                onCheckedChange={handleSelectAll}
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                Select all ({filtered.length} posts)
-                              </span>
-                            </div>
-                          )}
-
-                          {filtered.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No posts match the current filters.</p>
-                          ) : (
-                            filtered
-                              .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-                              .map((p) => (
-                                <Card key={p.id} className="hover:shadow-md transition-shadow">
-                                  <CardContent className="p-4">
-                                    <div className="flex items-start gap-4">
-                                      {/* Selection Checkbox */}
-                                      <div className="flex-shrink-0 pt-1">
-                                        <Checkbox
-                                          checked={selectedPostIds.has(p.id)}
-                                          onCheckedChange={(checked) => handleSelectPost(p.id, Boolean(checked))}
-                                        />
-                                      </div>
-
-                                      {/* Image thumbnail */}
-                                      {p.imageUrl && (
-                                        <div className="flex-shrink-0">
-                                          <img
-                                            src={p.imageUrl || "/placeholder.svg"}
-                                            alt="Post preview"
-                                            className="w-16 h-16 rounded-md object-cover"
-                                            crossOrigin="anonymous"
-                                          />
-                                        </div>
-                                      )}
-
-                                      {/* Content */}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <Badge className={getPlatformColor(p.platform)}>
-                                            {p.platform.charAt(0).toUpperCase() + p.platform.slice(1)}
-                                          </Badge>
-                                          <Badge className={getStatusColor(p.status)}>{p.status}</Badge>
-                                          <span className="text-sm text-muted-foreground">
-                                            {new Date(p.scheduledAt).toLocaleString()}
-                                          </span>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{p.content}</p>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleViewPost(p)}
-                                          className="flex items-center gap-2"
-                                        >
-                                          <Eye className="h-4 w-4" />
-                                          View Post
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))
-                          )}
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
+            {/* Top Action Bar */}
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-4">
+                <h1 className="text-lg font-semibold">
+                  {platformFilter ? `${getPlatformName(platformFilter)} Schedules` : "Dashboard Overview"}
+                </h1>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    Ongoing: <Badge variant="secondary">{ongoingCount}</Badge>
+                  </span>
+                  <span>
+                    Total: <Badge variant="outline">{filtered.length}</Badge>
+                  </span>
+                </div>
               </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setOpenCreate(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Schedule
+                </Button>
+                <Button variant="ghost">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                </Button>
+              </div>
+            </div>
+
+            <main className="container mx-auto p-6">
+              {isDashboardView ? (
+                // Dashboard View - Show all months and overview stats
+                <>
+                  {/* Quick Stats - Dashboard only */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">This Month</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {
+                            filtered.filter((p) => {
+                              const postDate = new Date(p.scheduledAt)
+                              const now = new Date()
+                              return (
+                                postDate.getMonth() === now.getMonth() && postDate.getFullYear() === now.getFullYear()
+                              )
+                            }).length
+                          }
+                        </div>
+                        <p className="text-xs text-muted-foreground">scheduled posts</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Next 7 Days</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {
+                            filtered.filter((p) => {
+                              const postDate = new Date(p.scheduledAt)
+                              const now = new Date()
+                              const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+                              return postDate >= now && postDate <= nextWeek
+                            }).length
+                          }
+                        </div>
+                        <p className="text-xs text-muted-foreground">upcoming posts</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {filtered.length > 0
+                            ? Math.round((filtered.filter((p) => p.status === "posted").length / filtered.length) * 100)
+                            : 0}
+                          %
+                        </div>
+                        <p className="text-xs text-muted-foreground">posts delivered</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Calendar Overview - Dashboard only */}
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-4">{currentYear} Calendar Overview</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {allOrderedMonths.map(({ month, year, isInactive }) => (
+                        <MiniCalendar
+                          key={`${year}-${month}`}
+                          month={month}
+                          year={year}
+                          posts={filtered}
+                          onDateClick={handleDateClick}
+                          className="hover:shadow-md transition-shadow"
+                          isInactive={isInactive}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // Platform Filtering View - Show relevant months and schedule list
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Mini Calendars - Platform filtering only */}
+                  <div className="lg:col-span-1">
+                    <h2 className="text-lg font-semibold mb-4">{getPlatformName(platformFilter)} Calendar</h2>
+                    <div className="space-y-4">
+                      {platformRelevantMonths.map(({ month, year, isInactive }) => (
+                        <MiniCalendar
+                          key={`${year}-${month}`}
+                          month={month}
+                          year={year}
+                          posts={filtered}
+                          onDateClick={handleDateClick}
+                          className="hover:shadow-md transition-shadow"
+                          isInactive={isInactive}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Schedule List - Platform filtering only */}
+                  <div className="lg:col-span-2">
+                    <h2 className="text-lg font-semibold mb-4">Scheduled Posts</h2>
+                    <ScheduleList
+                      posts={filtered}
+                      platform={platformFilter!}
+                      onViewPost={handleViewPost}
+                      onEditPost={handleEditPost}
+                      onDeletePost={handleDeletePost}
+                    />
+                  </div>
+                </div>
+              )}
             </main>
           </div>
         </SidebarInset>

@@ -41,7 +41,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
   const [useAIImage, setUseAIImage] = useState<boolean>(true)
 
   const [templateValues, setTemplateValues] = useState({
-    length: "medium" as "short" | "medium" | "long",
     platform: "facebook" as Platform,
     niche: "",
     topic: "",
@@ -60,12 +59,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   // Predefined options
-  const lengthOptions = [
-    { value: "short", label: "Short (under 100 chars)" },
-    { value: "medium", label: "Medium (100-200 chars)" },
-    { value: "long", label: "Long (200+ chars)" },
-  ]
-
   const toneOptions = [
     "professional",
     "casual",
@@ -169,9 +162,9 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(30)
 
       // Generate MORE content variants than needed to ensure uniqueness
-      const contentNeeded = Math.max(baseCount, 15) 
+      const contentNeeded = Math.max(baseCount, 15) // Generate at least 15 unique variants
       const textVariants = useAIContent
-        ? await generateTextVariants(structuredPrompt, contentNeeded, templateValues.length)
+        ? await generateTextVariants(structuredPrompt, contentNeeded)
         : Array.from({ length: contentNeeded }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
 
       // Progress: 60% - Generating image
@@ -200,6 +193,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         if (!seen.has(key) && !uniqueVariants.some((u) => hashContent(u) === key)) {
           uniqueVariants.push(v)
         } else {
+          // try to lightly vary content to remain unique
           const alt = `${v}\n\n${generateVarietyTag(uniqueVariants.length)}`
           if (!seen.has(hashContent(alt))) {
             uniqueVariants.push(alt)
@@ -215,12 +209,13 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         platforms,
         variants: uniqueVariants,
         imageUrl,
-        link: templateValues.link, 
+        link: templateValues.link, // Pass the link
       })
 
       // Progress: 90% - Saving posts
       setProgress(90)
 
+      // persist
       const previous = getPostsForUser(user.id)
       const merged = dedupePosts([...previous, ...posts])
       savePosts(user.id, merged)
@@ -411,22 +406,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
                       Basic Information
                     </h4>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Post Length</Label>
-                        <select
-                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={templateValues.length}
-                          onChange={(e) => setTemplateValues((prev) => ({ ...prev, length: e.target.value as any }))}
-                          disabled={loading}
-                        >
-                          {lengthOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
                       <div className="space-y-2">
                         <Label>Primary Platform</Label>
                         <select
@@ -727,13 +706,14 @@ function estimateTotalPosts(start: string, end: string, freqPerWeek: number, pla
   return Math.round(days * postsPerDay)
 }
 
-async function generateTextVariants(prompt: string, count: number, length: string): Promise<string[]> {
+async function generateTextVariants(prompt: string, count: number): Promise<string[]> {
   const res = await fetch("/api/ai/content", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt, count, length }), // Pass length parameter
+    body: JSON.stringify({ prompt, count }),
   })
   if (!res.ok) {
+    // fallback to simple variations
     return Array.from({ length: count }, (_, i) => `${prompt} (variant ${i + 1})`)
   }
   const data = (await res.json()) as { variants: string[] }
@@ -785,7 +765,7 @@ function buildPromptFromTemplate(values: any): string {
   const elements = values.elements.length > 0 ? values.elements.join(", ") : "engaging content"
   const linkText = values.link ? `Include this link: ${values.link}` : ""
 
-  return `Create a ${values.length} social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} ${linkText} Use text formatting like **bold**, *italic*, and other decorations when appropriate. Do not ask me any follow-up questions — generate the full post in one go.`
+  return `Create a social media post for ${values.platform} ${values.niche ? `in the ${values.niche} niche` : ""}. The topic is ${values.topic || "general business update"}. The focus is ${values.keyPoints || "key benefits and features"}. ${values.audience ? `The target audience is ${values.audience}.` : ""} The tone should be ${values.tone}. Include ${elements} as needed. ${values.callToAction ? `Add a ${values.callToAction} call-to-action.` : ""} Use ${values.perspective} perspective. ${values.keywords ? `Include relevant hashtags related to ${values.keywords}.` : ""} ${linkText} Use text formatting like **bold**, *italic*, and other decorations when appropriate. Keep the post between 100-150 words. Do not ask me any follow-up questions — generate the full post in one go.`
 }
 
 function buildImagePromptFromTemplate(values: any): string {
