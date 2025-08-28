@@ -16,8 +16,8 @@ const rubikBubbles = Rubik_Bubbles({
 })
 
 export const metadata = {
-  title: "SMP Post Scheduler",
-  description: "Schedule and manage your posts easily.",
+  title: "Pen Master - Social Media Scheduler",
+  description: "Schedule and manage your social media posts with ease using Pen Master.",
 }
 
 export default function RootLayout({

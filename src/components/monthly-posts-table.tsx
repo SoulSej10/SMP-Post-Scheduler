@@ -229,53 +229,61 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Monthly Posts Overview</CardTitle>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            {/* Platform Filter Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              {availablePlatforms.map((platform) => {
-                const config = getPlatformConfig(platform)
-                const Icon = config.icon
-                return (
-                  <Button
-                    key={platform}
-                    variant={selectedPlatform === platform ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedPlatform(platform)}
-                    className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-2 p-0 sm:px-3"
-                  >
-                    <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${selectedPlatform === platform ? "" : config.color}`} />
-                    <span className="hidden sm:inline">{config.name}</span>
-                  </Button>
-                )
-              })}
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Title and Platform Buttons */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <CardTitle className="text-lg">Monthly Posts Overview</CardTitle>
 
-            {/* Month Navigation */}
-            <div className="flex items-center gap-1 sm:gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth("prev")}
-                className="h-8 w-8 p-0 sm:w-auto sm:px-3"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden sm:inline ml-1">Prev</span>
-              </Button>
-              <span className="text-xs sm:text-sm font-medium min-w-[100px] sm:min-w-[120px] text-center px-2">
-                {monthNames[currentMonth]} {currentYear}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth("next")}
-                className="h-8 w-8 p-0 sm:w-auto sm:px-3"
-              >
-                <span className="hidden sm:inline mr-1">Next</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            {availablePlatforms.length > 0 && (
+              <>
+                <span className="text-muted-foreground hidden sm:inline">|</span>
+                <div className="flex items-center gap-2">
+                  {availablePlatforms.map((platform) => {
+                    const config = getPlatformConfig(platform)
+                    const Icon = config.icon
+                    return (
+                      <Button
+                        key={platform}
+                        variant={selectedPlatform === platform ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedPlatform(platform)}
+                        className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-2 p-0 sm:px-3"
+                      >
+                        <Icon
+                          className={`h-3 w-3 sm:h-4 sm:w-4 ${selectedPlatform === platform ? "" : config.color}`}
+                        />
+                        <span className="hidden sm:inline">{config.name}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Month Navigation */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth("prev")}
+              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Prev</span>
+            </Button>
+            <span className="text-xs sm:text-sm font-medium min-w-[100px] sm:min-w-[120px] text-center px-2">
+              {monthNames[currentMonth]} {currentYear}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth("next")}
+              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
+            >
+              <span className="hidden sm:inline mr-1">Next</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </CardHeader>
