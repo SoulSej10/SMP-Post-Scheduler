@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Post } from "@/lib/types"
 
 type Props = {
-  month: number // 0-11
+  month: number 
   year: number
   posts?: Post[]
   onDateClick?: (date: Date, posts: Post[]) => void
@@ -25,7 +25,7 @@ function getMonthMatrix(year: number, month: number) {
   const start = startOfMonth(year, month)
   const end = endOfMonth(year, month)
 
-  const startWeekDay = (start.getDay() + 6) % 7 // ISO-like: Monday=0
+  const startWeekDay = (start.getDay() + 6) % 7 
   const totalDays = end.getDate()
 
   const days: Date[] = []

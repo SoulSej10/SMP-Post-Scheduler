@@ -7,33 +7,27 @@ export async function POST(req: NextRequest) {
 
     console.log("Image generation request:", prompt.substring(0, 100))
 
-    // For now, always use enhanced placeholders with Facebook dimensions
     const enhancedPlaceholder = generateEnhancedPlaceholder(prompt)
     console.log("Generated placeholder:", enhancedPlaceholder)
 
     return Response.json({ imageUrl: enhancedPlaceholder })
   } catch (e: any) {
     console.error("Image generation error:", e)
-    // Always return a placeholder with Facebook dimensions
     const fallbackUrl = `/placeholder.svg?height=630&width=1200&query=${encodeURIComponent("Social media post")}`
     return Response.json({ imageUrl: fallbackUrl })
   }
 }
 
 function generateEnhancedPlaceholder(prompt: string): string {
-  // Extract key information from prompt for better placeholder
   const imageType = extractImageType(prompt)
   const style = extractStyle(prompt)
   const colors = extractColors(prompt)
   const topic = extractImageTopic(prompt)
 
-  // Create a more descriptive query for the placeholder
   const placeholderQuery = `${imageType} ${style} ${topic} ${colors}`.trim()
 
-  // Add some randomization for variety
   const seed = Math.floor(Math.random() * 1000)
 
-  // Use Facebook image dimensions (1200x630)
   return `/placeholder.svg?height=630&width=1200&query=${encodeURIComponent(placeholderQuery)}&seed=${seed}`
 }
 
@@ -90,7 +84,6 @@ function extractColors(prompt: string): string {
 }
 
 function extractImageTopic(prompt: string): string {
-  // Try to extract topic from common patterns
   const topicMatch = prompt.match(/topic: ([^.]+)/i)
   if (topicMatch) return topicMatch[1].trim()
 

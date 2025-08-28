@@ -98,7 +98,7 @@ export default function ScheduleList({ posts, platform, onViewPost, onEditPost, 
         setCurrentMonth(currentMonth + 1)
       }
     }
-    setCurrentPage(1) // Reset to first page when changing months
+    setCurrentPage(1) 
   }
 
   // Filter posts by status, month, and platform
@@ -119,7 +119,6 @@ export default function ScheduleList({ posts, platform, onViewPost, onEditPost, 
   const endIndex = startIndex + POSTS_PER_PAGE
   const currentPosts = filteredPosts.slice(startIndex, endIndex)
 
-  // Reset page when filter changes
   React.useEffect(() => {
     setCurrentPage(1)
   }, [statusFilter, currentMonth, currentYear])

@@ -51,7 +51,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     callToAction: "",
     perspective: "first-person" as "first-person" | "third-person",
     keywords: "",
-    link: "", // New link field
+    link: "", 
     imageType: "product photo" as string,
     imageStyle: "modern and clean" as string,
   })
@@ -162,7 +162,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(30)
 
       // Generate MORE content variants than needed to ensure uniqueness
-      const contentNeeded = Math.max(baseCount, 15) // Generate at least 15 unique variants
+      const contentNeeded = Math.max(baseCount, 50) // Generate at least 50 unique variants
       const textVariants = useAIContent
         ? await generateTextVariants(structuredPrompt, contentNeeded)
         : Array.from({ length: contentNeeded }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
@@ -171,11 +171,10 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(60)
 
       // Build image prompt from template and generate image
-      let imageUrl = "/default-social-post.png" // Default image
+      let imageUrl = "/default-social-post.png"
       if (useAIImage) {
         const imagePrompt = buildImagePromptFromTemplate(templateValues)
         const generatedImageUrl = await generateImage(imagePrompt)
-        // Only use generated image if it's not the placeholder
         if (generatedImageUrl && !generatedImageUrl.includes("placeholder.svg")) {
           imageUrl = generatedImageUrl
         }
@@ -193,7 +192,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         if (!seen.has(key) && !uniqueVariants.some((u) => hashContent(u) === key)) {
           uniqueVariants.push(v)
         } else {
-          // try to lightly vary content to remain unique
           const alt = `${v}\n\n${generateVarietyTag(uniqueVariants.length)}`
           if (!seen.has(hashContent(alt))) {
             uniqueVariants.push(alt)
@@ -209,7 +207,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         platforms,
         variants: uniqueVariants,
         imageUrl,
-        link: templateValues.link, // Pass the link
+        link: templateValues.link, 
       })
 
       // Progress: 90% - Saving posts
@@ -231,7 +229,6 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         message: `Successfully created ${posts.length} posts across ${platforms.length} platform${platforms.length !== 1 ? "s" : ""}.`,
       })
 
-      // close after a short delay
       setTimeout(() => {
         setLoading(false)
         onOpenChange(false)
@@ -713,13 +710,11 @@ async function generateTextVariants(prompt: string, count: number): Promise<stri
     body: JSON.stringify({ prompt, count }),
   })
   if (!res.ok) {
-    // fallback to simple variations
     return Array.from({ length: count }, (_, i) => `${prompt} (variant ${i + 1})`)
   }
   const data = (await res.json()) as { variants: string[] }
   const variants = data?.variants ?? []
   if (variants.length >= count) return variants.slice(0, count)
-  // pad if needed
   return [...variants, ...Array.from({ length: count - variants.length }, (_, i) => `${prompt} (v${i + 1})`)]
 }
 

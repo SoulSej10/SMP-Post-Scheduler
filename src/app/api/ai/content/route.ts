@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const prompt: string = body?.prompt || "Write a short social post."
     const count: number = Math.max(1, Math.min(20, Number(body?.count || 5)))
-    const length: string = body?.length || "medium" // Get length parameter
+    const length: string = body?.length || "medium" 
 
     console.log("✅ Parsed prompt:", prompt, "✅ Count:", count, "✅ Length:", length)
 
@@ -94,7 +94,6 @@ STRICTLY follow the character limit specified above.
         .map((block) => block.replace(/^\d+[.)]\s*/, "").trim())
         .filter(Boolean)
 
-      // Filter extra variants by character count
       extraVariants = extraVariants.filter((post) => {
         const charCount = post.length
         switch (targetLength) {
