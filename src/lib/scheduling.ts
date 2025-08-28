@@ -8,34 +8,42 @@ export function createPostsForSchedule(args: {
   platforms: Platform[]
   variants: string[]
   imageUrl?: string
-  link?: string 
+  link?: string
 }): Post[] {
   const { userId, startDate, endDate, frequencyPerWeek, platforms, variants, imageUrl, link } = args
 
+  // Calculate total posts: frequency * platforms * weeks
   const startMs = new Date(startDate).getTime()
   const endMs = new Date(endDate).getTime()
   const totalDays = Math.max(1, Math.ceil((endMs - startMs) / (24 * 60 * 60 * 1000)) + 1)
+  const weeks = Math.max(1, Math.ceil(totalDays / 7))
 
-  const postsPerDay = (frequencyPerWeek * platforms.length) / 7
-  const totalPosts = Math.round(totalDays * postsPerDay)
+  // Total posts = frequency per week * number of platforms * number of weeks
+  const totalPosts = frequencyPerWeek * platforms.length * weeks
 
+  // Generate random dates for all posts
   const scheduleDates = generateRandomDates(startDate, endDate, totalPosts)
 
   const posts: Post[] = []
 
+  // Create posts with equal distribution across platforms
   for (let i = 0; i < totalPosts && i < scheduleDates.length; i++) {
-    const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)]
+    // Cycle through platforms to ensure equal distribution
+    const platformIndex = i % platforms.length
+    const selectedPlatform = platforms[platformIndex]
 
+    // Use different content for each post (cycle through variants)
     let content = variants[i % variants.length]
 
-    if (link) {
+    // Only add link to content if provided
+    if (link && link.trim()) {
       content = `${content}\n\n🔗 ${link}`
     }
 
     posts.push({
       id: uid(),
       userId,
-      platform: randomPlatform,
+      platform: selectedPlatform,
       content,
       imageUrl: imageUrl || "/default-social-post.png",
       scheduledAt: scheduleDates[i].toISOString(),
@@ -43,6 +51,7 @@ export function createPostsForSchedule(args: {
     })
   }
 
+  // Remove duplicates by content+date+platform
   return dedupe(posts)
 }
 
@@ -56,11 +65,12 @@ function generateRandomDates(startDate: string, endDate: string, count: number):
   const totalMs = end.getTime() - start.getTime()
 
   for (let i = 0; i < count; i++) {
+    // Generate completely random time within the range
     const randomMs = Math.random() * totalMs
     const newDate = new Date(start.getTime() + randomMs)
 
     // Randomize the hour between 9 AM and 6 PM
-    const randomHour = 9 + Math.floor(Math.random() * 10) 
+    const randomHour = 9 + Math.floor(Math.random() * 10) // 9-18 (6 PM)
     const randomMinute = Math.floor(Math.random() * 60)
 
     newDate.setHours(randomHour, randomMinute, 0, 0)
@@ -72,6 +82,7 @@ function generateRandomDates(startDate: string, endDate: string, count: number):
 }
 
 export function spreadDates(start: string, end: string, perWeek: number): Date[] {
+  // This function is kept for backward compatibility but not used in the new logic
   const s = new Date(start)
   const e = new Date(end)
   if (e < s) return [s]

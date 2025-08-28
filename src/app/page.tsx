@@ -18,6 +18,7 @@ import PostViewModal from "@/components/post-view-modal"
 import EditPostModal from "@/components/edit-post-modal"
 import DeleteConfirmationModal from "@/components/delete-confirmation-modal"
 import BulkDeleteModal from "@/components/bulk-delete-modal"
+import MonthlyPostsTable from "@/components/monthly-posts-table"
 import { ToastProvider, useToast } from "@/components/toast-notification"
 import { LoadingOverlay } from "@/components/loading-spinner"
 import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
@@ -290,6 +291,25 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     }, 800)
   }
 
+  const handleUpdateMonthlyPost = (postId: string, updates: any) => {
+    const user = getSessionUser()
+    if (!user) return
+
+    // Find the post and update it with the new fields
+    const post = posts.find((p) => p.id === postId)
+    if (post) {
+      const updatedPost = { ...post, ...updates }
+      updatePost(user.id, updatedPost)
+      loadPosts()
+
+      showToast({
+        type: "success",
+        title: "Post Updated",
+        message: "Post details have been updated successfully.",
+      })
+    }
+  }
+
   const getPlatformName = (platform: Platform | null) => {
     if (!platform) return "All Platforms"
     return platform.charAt(0).toUpperCase() + platform.slice(1)
@@ -321,7 +341,11 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                   <h1 className="text-lg font-semibold">
                     {platformFilter ? `${getPlatformName(platformFilter)} Schedules` : "Dashboard Overview"}
                   </h1>
-                  <Button size="sm" onClick={() => setOpenCreate(true)}>
+                  <Button
+                    size="sm"
+                    onClick={() => setOpenCreate(true)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -356,7 +380,10 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => setOpenCreate(true)}>
+                  <Button
+                    onClick={() => setOpenCreate(true)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Create Schedule
                   </Button>
@@ -427,6 +454,11 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                         <p className="text-xs text-muted-foreground">posts delivered</p>
                       </CardContent>
                     </Card>
+                  </div>
+
+                  {/* Monthly Posts Table - Dashboard only */}
+                  <div className="mb-8">
+                    <MonthlyPostsTable posts={filtered} onUpdatePost={handleUpdateMonthlyPost} />
                   </div>
 
                   {/* Calendar Overview - Dashboard only */}
