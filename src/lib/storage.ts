@@ -28,9 +28,10 @@ export function registerLocal({ email, password, name }: { email: string; passwo
     email,
     name,
     passwordHash: btoa(password), // mock only
+    onboardingCompleted: false, // New users need onboarding
   }
   localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]))
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ id, email, name }))
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ id, email, name, onboardingCompleted: false }))
   return { ok: true as const }
 }
 
@@ -38,17 +39,53 @@ export function loginLocal(email: string, password: string) {
   const users = getUsers()
   const u = users.find((x) => x.email.toLowerCase() === email.toLowerCase() && x.passwordHash === btoa(password))
   if (!u) return false
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ id: u.id, email: u.email, name: u.name }))
+  localStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      onboardingCompleted: u.onboardingCompleted || false,
+    }),
+  )
   return true
 }
 
 export function getSessionUser() {
   try {
     const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as Pick<User, "id" | "email" | "name">) : null
+    return raw ? (JSON.parse(raw) as Pick<User, "id" | "email" | "name"> & { onboardingCompleted?: boolean }) : null
   } catch {
     return null
   }
+}
+
+export function updateUserProfile(userId: string, profileData: Partial<User>) {
+  const users = getUsers()
+  const userIndex = users.findIndex((u) => u.id === userId)
+
+  if (userIndex !== -1) {
+    users[userIndex] = { ...users[userIndex], ...profileData }
+    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+
+    // Update session if it's the current user
+    const session = getSessionUser()
+    if (session && session.id === userId) {
+      const updatedSession = { ...session, ...profileData }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession))
+    }
+    return true
+  }
+  return false
+}
+
+export function getUserProfile(userId: string): User | null {
+  const users = getUsers()
+  return users.find((u) => u.id === userId) || null
+}
+
+export function completeOnboarding(userId: string) {
+  return updateUserProfile(userId, { onboardingCompleted: true })
 }
 
 export function logoutLocal() {

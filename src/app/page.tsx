@@ -54,11 +54,17 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
   const isDashboardView = !platformFilter
 
-  // Redirect if not logged in
   useEffect(() => {
     const user = getSessionUser()
     if (!user) {
       router.push("/login")
+      return
+    }
+
+    // Check if user needs to complete onboarding
+    if (!user.onboardingCompleted) {
+      router.push("/onboarding")
+      return
     }
   }, [router])
 

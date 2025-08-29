@@ -18,7 +18,7 @@ type Props = {
 
 type PostStatus = "all" | "previous" | "ongoing" | "upcoming"
 
-const POSTS_PER_PAGE = 3
+const POSTS_PER_PAGE = 5
 
 export default function ScheduleList({ posts, platform, onViewPost, onEditPost, onDeletePost }: Props) {
   const [statusFilter, setStatusFilter] = React.useState<PostStatus>("all")
@@ -98,7 +98,7 @@ export default function ScheduleList({ posts, platform, onViewPost, onEditPost, 
         setCurrentMonth(currentMonth + 1)
       }
     }
-    setCurrentPage(1) 
+    setCurrentPage(1) // Reset to first page when changing months
   }
 
   // Filter posts by status, month, and platform
@@ -119,6 +119,7 @@ export default function ScheduleList({ posts, platform, onViewPost, onEditPost, 
   const endIndex = startIndex + POSTS_PER_PAGE
   const currentPosts = filteredPosts.slice(startIndex, endIndex)
 
+  // Reset page when filter changes
   React.useEffect(() => {
     setCurrentPage(1)
   }, [statusFilter, currentMonth, currentYear])

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PenTool, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { PenTool, Eye, EyeOff, AlertCircle, Calendar, Zap, Shield } from "lucide-react"
 import { getSessionUser, loginLocal, getUsers } from "@/lib/storage"
 
 export default function LoginPage() {
@@ -22,7 +22,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     const u = getSessionUser()
-    if (u) router.push("/")
+    if (u) {
+      if (u.onboardingCompleted) {
+        router.push("/")
+      } else {
+        router.push("/onboarding")
+      }
+    }
   }, [router])
 
   const validateForm = () => {
@@ -64,7 +70,12 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/")
+    const user = getSessionUser()
+    if (user?.onboardingCompleted) {
+      router.push("/")
+    } else {
+      router.push("/onboarding")
+    }
   }
 
   return (
@@ -111,7 +122,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="enter password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -164,13 +175,32 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Demo accounts info */}
-            <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <div className="text-xs text-blue-800">
-                <p className="font-medium mb-1">Coming Soon:</p>
-                <p>We’re working on adding more ways to log in.</p>
-                <p className="mt-1">Soon you’ll be able to sign in using known platforms.</p>
-                <p className="mt-2">Stay tuned for updates!</p>
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+              <div className="text-sm">
+                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Why Choose Pen Master?
+                </h3>
+                <div className="space-y-2 text-blue-700">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs">Smart scheduling across Facebook, Instagram & LinkedIn</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs">AI-powered content generation with Gemini AI</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs">Secure credential storage and automated posting</span>
+                  </div>
+                </div>
+                {getUsers().length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <p className="text-xs font-medium text-blue-800">Demo Account Available:</p>
+                    <p className="text-xs text-blue-700">demo@example.com / demo1234</p>
+                  </div>
+                )}
               </div>
             </div>
           </form>
