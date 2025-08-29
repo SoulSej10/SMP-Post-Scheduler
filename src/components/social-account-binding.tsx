@@ -296,7 +296,6 @@ export default function SocialAccountBinding() {
             {expandedSchedule === account.platform && (
               <div className="border-t bg-gray-50/50 p-4 space-y-4">
                 <div className="flex items-center gap-2">
-                  {getPlatformIcon(account.platform)}
                   <h4 className="font-medium text-sm">{getPlatformName(account.platform)} Schedule Settings</h4>
                 </div>
 

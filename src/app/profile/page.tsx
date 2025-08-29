@@ -304,7 +304,7 @@ export default function ProfilePage() {
               {/* Account Status */}
               <Card className="lg:col-span-3">
                 <CardHeader>
-                  <CardTitle>Account Status</CardTitle>
+                  <CardTitle>Account Information</CardTitle>
                   <CardDescription>Your account information and current status</CardDescription>
                 </CardHeader>
                 <CardContent>
