@@ -31,7 +31,13 @@ export function registerLocal({ email, password, name }: { email: string; passwo
     passwordHash: btoa(password), // mock only
     onboardingCompleted: false, // New users need onboarding
     companies: [], // Initialize companies array
-    currentCompanyId: null, // Initialize current company ID
+    currentCompanyId: null,
+    bio: "",
+    preferences: {
+      emailNotifications: false,
+      pushNotifications: false,
+      weeklyReports: false
+    }
   }
   localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]))
   localStorage.setItem(
