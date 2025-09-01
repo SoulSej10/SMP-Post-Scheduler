@@ -12,6 +12,7 @@ import {
   User,
   LogOut,
   UserCircle,
+  Plus,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -39,7 +40,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
 import { getSessionUser, logoutLocal, getUserProfile } from "@/lib/storage"
+import CompanySelector from "@/components/company-selector"
+import CreateCompanyModal from "@/components/create-company-modal"
 
 export function AppSidebar() {
   const router = useRouter()
@@ -48,6 +52,8 @@ export function AppSidebar() {
   const [userName, setUserName] = useState("User")
   const [userProfile, setUserProfile] = useState<any>(null)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [showCreateCompany, setShowCreateCompany] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const user = getSessionUser()
@@ -95,6 +101,18 @@ export function AppSidebar() {
     router.push("/login")
   }
 
+  const handleCompanyChange = (companyId: string) => {
+    setRefreshKey((prev) => prev + 1)
+    // Refresh the current page to load data for the new company
+    router.refresh()
+  }
+
+  const handleCompanyCreated = (companyId: string) => {
+    setRefreshKey((prev) => prev + 1)
+    // Refresh the current page to load data for the new company
+    router.refresh()
+  }
+
   return (
     <>
       <Sidebar collapsible="icon">
@@ -110,6 +128,24 @@ export function AppSidebar() {
           </div>
         </SidebarHeader>
         <SidebarContent className="leading-3">
+          <SidebarGroup>
+            <SidebarGroupLabel>Company</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="space-y-2 px-2">
+                <CompanySelector key={refreshKey} onCompanyChange={handleCompanyChange} className="w-full" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCreateCompany(true)}
+                  className="w-full justify-start group-data-[collapsible=icon]:justify-center"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="group-data-[collapsible=icon]:hidden ml-2">New Company</span>
+                </Button>
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
           <SidebarGroup>
             <SidebarGroupLabel>Navigation</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -205,6 +241,12 @@ export function AppSidebar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CreateCompanyModal
+        open={showCreateCompany}
+        onOpenChange={setShowCreateCompany}
+        onCompanyCreated={handleCompanyCreated}
+      />
     </>
   )
 }

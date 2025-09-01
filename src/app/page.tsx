@@ -21,7 +21,7 @@ import BulkDeleteModal from "@/components/bulk-delete-modal"
 import MonthlyPostsTable from "@/components/monthly-posts-table"
 import { ToastProvider, useToast } from "@/components/toast-notification"
 import { LoadingOverlay } from "@/components/loading-spinner"
-import { getSessionUser, updatePost, deletePost, deletePosts } from "@/lib/storage"
+import { getSessionUser, updatePost, deletePost, deletePosts, getPostsForUser } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 import PostsDataTable from "@/components/posts-data-table"
 
@@ -70,18 +70,13 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
   const [posts, setPosts] = useState<Post[]>([])
 
-  // Load posts for session user
   const loadPosts = () => {
     const user = getSessionUser()
     if (!user) return
-    const raw = localStorage.getItem(`smp:posts:${user.id}`)
-    if (raw) {
-      try {
-        setPosts(JSON.parse(raw))
-      } catch {
-        setPosts([])
-      }
-    }
+
+    // Use the updated getPostsForUser function with company filtering
+    const companyPosts = getPostsForUser(user.id, user.currentCompanyId)
+    setPosts(companyPosts)
   }
 
   useEffect(() => {

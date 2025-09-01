@@ -12,6 +12,7 @@ export function getPlatformScheduleDays(): Record<Platform, string[]> {
 
 export function createPostsForSchedule(args: {
   userId: string
+  companyId: string
   startDate: string
   endDate: string
   frequencyPerWeek: number
@@ -20,7 +21,7 @@ export function createPostsForSchedule(args: {
   imageUrl?: string
   link?: string
 }): Post[] {
-  const { userId, startDate, endDate, frequencyPerWeek, platforms, variants, imageUrl, link } = args
+  const { userId, companyId, startDate, endDate, frequencyPerWeek, platforms, variants, imageUrl, link } = args
 
   const platformScheduleDays = getPlatformScheduleDays()
 
@@ -52,6 +53,7 @@ export function createPostsForSchedule(args: {
     posts.push({
       id: uid(),
       userId,
+      companyId,
       platform: scheduleInfo.platform,
       content,
       imageUrl: imageUrl || "/default-social-post.png",

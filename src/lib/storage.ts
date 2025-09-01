@@ -1,8 +1,9 @@
-import type { Post, User } from "./types"
+import type { Post, User, Company } from "./types"
 
 const USERS_KEY = "smp:users"
 const SESSION_KEY = "smp:session"
 const SETTINGS_KEY = "smp:settings"
+const COMPANIES_KEY = "smp:companies"
 
 type Settings = {
   n8nWebhookUrl?: string
@@ -29,9 +30,14 @@ export function registerLocal({ email, password, name }: { email: string; passwo
     name,
     passwordHash: btoa(password), // mock only
     onboardingCompleted: false, // New users need onboarding
+    companies: [], // Initialize companies array
+    currentCompanyId: null, // Initialize current company ID
   }
   localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]))
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ id, email, name, onboardingCompleted: false }))
+  localStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ id, email, name, onboardingCompleted: false, companies: [], currentCompanyId: null }),
+  )
   return { ok: true as const }
 }
 
@@ -46,6 +52,8 @@ export function loginLocal(email: string, password: string) {
       email: u.email,
       name: u.name,
       onboardingCompleted: u.onboardingCompleted || false,
+      companies: u.companies || [],
+      currentCompanyId: u.currentCompanyId,
     }),
   )
   return true
@@ -54,7 +62,13 @@ export function loginLocal(email: string, password: string) {
 export function getSessionUser() {
   try {
     const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as Pick<User, "id" | "email" | "name"> & { onboardingCompleted?: boolean }) : null
+    return raw
+      ? (JSON.parse(raw) as Pick<User, "id" | "email" | "name"> & {
+          onboardingCompleted?: boolean
+          companies?: string[]
+          currentCompanyId?: string
+        })
+      : null
   } catch {
     return null
   }
@@ -92,10 +106,17 @@ export function logoutLocal() {
   localStorage.removeItem(SESSION_KEY)
 }
 
-export function getPostsForUser(userId: string): Post[] {
+export function getPostsForUser(userId: string, companyId?: string): Post[] {
   try {
     const raw = localStorage.getItem(`smp:posts:${userId}`)
-    return raw ? (JSON.parse(raw) as Post[]) : []
+    const posts = raw ? (JSON.parse(raw) as Post[]) : []
+
+    // Filter by company if specified
+    if (companyId) {
+      return posts.filter((post) => post.companyId === companyId)
+    }
+
+    return posts
   } catch {
     return []
   }
@@ -163,4 +184,97 @@ function cryptoRandomId() {
     return (crypto as any).randomUUID() as string
   }
   return Math.random().toString(36).slice(2)
+}
+
+export function getCompanies(): Company[] {
+  try {
+    const raw = localStorage.getItem(COMPANIES_KEY)
+    return raw ? (JSON.parse(raw) as Company[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveCompanies(companies: Company[]) {
+  localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
+}
+
+export function createCompany(name: string, description = "", ownerId: string): Company {
+  const companies = getCompanies()
+  const newCompany: Company = {
+    id: cryptoRandomId(),
+    name,
+    description,
+    createdAt: new Date().toISOString(),
+    ownerId,
+    members: [ownerId],
+  }
+
+  companies.push(newCompany)
+  saveCompanies(companies)
+
+  // Add company to user's companies list
+  const users = getUsers()
+  const userIndex = users.findIndex((u) => u.id === ownerId)
+  if (userIndex !== -1) {
+    users[userIndex].companies = [...(users[userIndex].companies || []), newCompany.id]
+    users[userIndex].currentCompanyId = newCompany.id
+    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+
+    // Update session
+    const session = getSessionUser()
+    if (session && session.id === ownerId) {
+      localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          ...session,
+          currentCompanyId: newCompany.id,
+          companies: users[userIndex].companies,
+        }),
+      )
+    }
+  }
+
+  return newCompany
+}
+
+export function getUserCompanies(userId: string): Company[] {
+  const companies = getCompanies()
+  return companies.filter(
+    (company) => company.ownerId === userId || (company.members && company.members.includes(userId)),
+  )
+}
+
+export function getCompanyById(companyId: string): Company | null {
+  const companies = getCompanies()
+  return companies.find((c) => c.id === companyId) || null
+}
+
+export function switchUserCompany(userId: string, companyId: string): boolean {
+  const users = getUsers()
+  const userIndex = users.findIndex((u) => u.id === userId)
+
+  if (userIndex !== -1) {
+    const userCompanies = getUserCompanies(userId)
+    const hasAccess = userCompanies.some((c) => c.id === companyId)
+
+    if (hasAccess) {
+      users[userIndex].currentCompanyId = companyId
+      localStorage.setItem(USERS_KEY, JSON.stringify(users))
+
+      // Update session
+      const session = getSessionUser()
+      if (session && session.id === userId) {
+        localStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({
+            ...session,
+            currentCompanyId: companyId,
+          }),
+        )
+      }
+      return true
+    }
+  }
+  return false
 }

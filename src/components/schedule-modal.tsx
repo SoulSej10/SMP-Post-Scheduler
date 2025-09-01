@@ -51,7 +51,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     callToAction: "",
     perspective: "first-person" as "first-person" | "third-person",
     keywords: "",
-    link: "", 
+    link: "", // New link field
     imageType: "product photo" as string,
     imageStyle: "modern and clean" as string,
   })
@@ -150,6 +150,12 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         return
       }
 
+      if (!user.currentCompanyId) {
+        setError("Please select a company first.")
+        setLoading(false)
+        return
+      }
+
       const baseCount = estimateTotalPosts(startDate, endDate, frequency, platforms.length)
 
       // Progress: 10% - Starting
@@ -162,7 +168,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(30)
 
       // Generate MORE content variants than needed to ensure uniqueness
-      const contentNeeded = Math.max(baseCount, 50) // Generate at least 50 unique variants
+      const contentNeeded = Math.max(baseCount, 15) // Generate at least 15 unique variants
       const textVariants = useAIContent
         ? await generateTextVariants(structuredPrompt, contentNeeded)
         : Array.from({ length: contentNeeded }, (_, i) => `${templateValues.topic || "Social media post"} (#${i + 1})`)
@@ -171,10 +177,11 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       setProgress(60)
 
       // Build image prompt from template and generate image
-      let imageUrl = "/default-social-post.png"
+      let imageUrl = "/default-social-post.png" // Default image
       if (useAIImage) {
         const imagePrompt = buildImagePromptFromTemplate(templateValues)
         const generatedImageUrl = await generateImage(imagePrompt)
+        // Only use generated image if it's not the placeholder
         if (generatedImageUrl && !generatedImageUrl.includes("placeholder.svg")) {
           imageUrl = generatedImageUrl
         }
@@ -183,8 +190,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       // Progress: 80% - Creating posts
       setProgress(80)
 
-      // de-duplicate against existing content
-      const existing = getPostsForUser(user.id)
+      const existing = getPostsForUser(user.id, user.currentCompanyId)
       const seen = new Set(existing.map((p) => hashContent(p.content)))
       const uniqueVariants: string[] = []
       for (const v of textVariants) {
@@ -192,6 +198,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         if (!seen.has(key) && !uniqueVariants.some((u) => hashContent(u) === key)) {
           uniqueVariants.push(v)
         } else {
+          // try to lightly vary content to remain unique
           const alt = `${v}\n\n${generateVarietyTag(uniqueVariants.length)}`
           if (!seen.has(hashContent(alt))) {
             uniqueVariants.push(alt)
@@ -201,19 +208,19 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
 
       const posts = createPostsForSchedule({
         userId: user.id,
+        companyId: user.currentCompanyId, // Pass current company ID
         startDate,
         endDate,
         frequencyPerWeek: frequency,
         platforms,
         variants: uniqueVariants,
         imageUrl,
-        link: templateValues.link, 
+        link: templateValues.link, // Pass the link
       })
 
       // Progress: 90% - Saving posts
       setProgress(90)
 
-      // persist
       const previous = getPostsForUser(user.id)
       const merged = dedupePosts([...previous, ...posts])
       savePosts(user.id, merged)
@@ -229,6 +236,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         message: `Successfully created ${posts.length} posts across ${platforms.length} platform${platforms.length !== 1 ? "s" : ""}.`,
       })
 
+      // close after a short delay
       setTimeout(() => {
         setLoading(false)
         onOpenChange(false)
@@ -710,11 +718,13 @@ async function generateTextVariants(prompt: string, count: number): Promise<stri
     body: JSON.stringify({ prompt, count }),
   })
   if (!res.ok) {
+    // fallback to simple variations
     return Array.from({ length: count }, (_, i) => `${prompt} (variant ${i + 1})`)
   }
   const data = (await res.json()) as { variants: string[] }
   const variants = data?.variants ?? []
   if (variants.length >= count) return variants.slice(0, count)
+  // pad if needed
   return [...variants, ...Array.from({ length: count - variants.length }, (_, i) => `${prompt} (v${i + 1})`)]
 }
 
