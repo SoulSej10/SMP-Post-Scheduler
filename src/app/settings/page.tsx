@@ -12,6 +12,7 @@ import { getSessionUser, getSettings, saveSettings } from "@/lib/storage"
 import { useEffect, useState } from "react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import SocialAccountBinding from "@/components/social-account-binding"
+import CompanyManagementCard from "@/components/company-management-card"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -62,6 +63,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Separator />
+
+          <CompanyManagementCard />
 
           <Separator />
 

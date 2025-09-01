@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { User, Building2, Save, Camera, CheckCircle, AlertCircle, LogOut } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { User, Save, Camera, CheckCircle, AlertCircle, LogOut, Bell, Shield, Activity, Calendar } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { getSessionUser, updateUserProfile, getUserProfile, logoutLocal } from "@/lib/storage"
+import { getSessionUser, updateUserProfile, getUserProfile, logoutLocal, getPostsForUser } from "@/lib/storage"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 
@@ -29,10 +31,14 @@ type UserProfile = {
   email: string
   phone?: string
   role?: string
-  company?: string
-  companyLogo?: string
+  bio?: string
   profilePicture?: string
   onboardingCompleted?: boolean
+  preferences?: {
+    emailNotifications: boolean
+    pushNotifications: boolean
+    weeklyReports: boolean
+  }
 }
 
 export default function ProfilePage() {
@@ -41,15 +47,20 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [stats, setStats] = useState({ totalPosts: 0, scheduledPosts: 0, postedPosts: 0 })
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     role: "",
-    company: "",
-    companyLogo: "",
+    bio: "",
     profilePicture: "",
+    preferences: {
+      emailNotifications: true,
+      pushNotifications: true,
+      weeklyReports: false,
+    },
   })
 
   useEffect(() => {
@@ -69,21 +80,43 @@ export default function ProfilePage() {
         email: fullProfile.email || "",
         phone: fullProfile.phone || "",
         role: fullProfile.role || "",
-        company: fullProfile.company || "",
-        companyLogo: fullProfile.companyLogo || "",
+        bio: fullProfile.bio || "",
         profilePicture: fullProfile.profilePicture || "",
+        preferences: fullProfile.preferences || {
+          emailNotifications: true,
+          pushNotifications: true,
+          weeklyReports: false,
+        },
       })
     }
+
+    const userPosts = getPostsForUser(sessionUser.id, sessionUser.currentCompanyId)
+    setStats({
+      totalPosts: userPosts.length,
+      scheduledPosts: userPosts.filter((p) => p.status === "scheduled").length,
+      postedPosts: userPosts.filter((p) => p.status === "posted").length,
+    })
   }, [router])
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+  const handleInputChange = (field: string, value: string | boolean) => {
+    if (field.startsWith("preferences.")) {
+      const prefField = field.split(".")[1]
+      setFormData((prev) => ({
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          [prefField]: value,
+        },
+      }))
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }))
+    }
   }
 
-  const handleFileUpload = (field: "profilePicture" | "companyLogo", file: File) => {
+  const handleFileUpload = (field: "profilePicture", file: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       const result = e.target?.result as string
@@ -92,26 +125,26 @@ export default function ProfilePage() {
     reader.readAsDataURL(file)
   }
 
- const handleSave = async () => {
+  const handleSave = async () => {
     if (!user) return
 
     setIsSaving(true)
     setSaveMessage(null)
 
     try {
-        const success = updateUserProfile(user.id, formData)
+      const success = updateUserProfile(user.id, formData)
 
-        if (success) {
+      if (success) {
         setSaveMessage({ type: "success", text: "Profile updated successfully!" })
         setUser((prev) => (prev ? { ...prev, ...formData } : prev))
-        } else {
+      } else {
         setSaveMessage({ type: "error", text: "Failed to update profile. Please try again." })
-        }
+      }
     } catch (error) {
-        setSaveMessage({ type: "error", text: "An error occurred while saving your profile." })
+      setSaveMessage({ type: "error", text: "An error occurred while saving your profile." })
     } finally {
-        setIsSaving(false)
-        setTimeout(() => setSaveMessage(null), 3000)
+      setIsSaving(false)
+      setTimeout(() => setSaveMessage(null), 3000)
     }
   }
 
@@ -244,59 +277,96 @@ export default function ProfilePage() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="Tell us a bit about yourself..."
+                      value={formData.bio}
+                      onChange={(e) => handleInputChange("bio", e.target.value)}
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">Brief description about yourself (optional)</p>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Company Information */}
               <Card className="lg:col-span-3">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Company Information
+                    <Activity className="h-5 w-5" />
+                    Activity Statistics
                   </CardTitle>
-                  <CardDescription>Manage your company details for better content personalization</CardDescription>
+                  <CardDescription>Your posting activity and performance overview</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <Calendar className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <p className="text-2xl font-bold text-blue-900">{stats.totalPosts}</p>
+                        <p className="text-sm text-blue-700">Total Posts</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                      <Calendar className="h-8 w-8 text-orange-600" />
+                      <div>
+                        <p className="text-2xl font-bold text-orange-900">{stats.scheduledPosts}</p>
+                        <p className="text-sm text-orange-700">Scheduled</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                      <CheckCircle className="h-8 w-8 text-green-600" />
+                      <div>
+                        <p className="text-2xl font-bold text-green-900">{stats.postedPosts}</p>
+                        <p className="text-sm text-green-700">Posted</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Notification Preferences
+                  </CardTitle>
+                  <CardDescription>Manage how you receive updates and notifications</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="company">Company Name</Label>
-                        <Input
-                          id="company"
-                          placeholder="Enter your company name"
-                          value={formData.company}
-                          onChange={(e) => handleInputChange("company", e.target.value)}
-                        />
-                      </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Email Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Receive email updates about your posts and schedules
+                      </p>
                     </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="companyLogo">Company Logo</Label>
-                        <div className="flex items-center gap-4">
-                          <Input
-                            id="companyLogo"
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) handleFileUpload("companyLogo", file)
-                            }}
-                            className="flex-1"
-                          />
-                          {formData.companyLogo && (
-                            <div className="w-12 h-12 rounded-lg overflow-hidden border">
-                              <img
-                                src={formData.companyLogo || "/placeholder.svg"}
-                                alt="Company logo"
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Upload your company logo for branded content</p>
-                      </div>
+                    <Switch
+                      checked={formData.preferences.emailNotifications}
+                      onCheckedChange={(checked) => handleInputChange("preferences.emailNotifications", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Push Notifications</Label>
+                      <p className="text-sm text-muted-foreground">Get instant notifications for important updates</p>
                     </div>
+                    <Switch
+                      checked={formData.preferences.pushNotifications}
+                      onCheckedChange={(checked) => handleInputChange("preferences.pushNotifications", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Weekly Reports</Label>
+                      <p className="text-sm text-muted-foreground">Receive weekly performance summaries via email</p>
+                    </div>
+                    <Switch
+                      checked={formData.preferences.weeklyReports}
+                      onCheckedChange={(checked) => handleInputChange("preferences.weeklyReports", checked)}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -304,13 +374,16 @@ export default function ProfilePage() {
               {/* Account Status */}
               <Card className="lg:col-span-3">
                 <CardHeader>
-                  <CardTitle>Account Information</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Account Status
+                  </CardTitle>
                   <CardDescription>Your account information and current status</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">Account Status</p>
+                      <p className="text-sm font-medium">Status</p>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
                           <CheckCircle className="h-3 w-3 mr-1" />

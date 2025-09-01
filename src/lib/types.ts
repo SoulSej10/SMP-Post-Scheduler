@@ -10,12 +10,20 @@ export type Company = {
   members?: string[] // User IDs who have access to this company
 }
 
+export type Preferences = {
+  emailNotifications: boolean
+  pushNotifications: boolean
+  weeklyReports: boolean
+}
+
 export type User = {
   id: string
   email: string
   name: string
+  bio: string
   passwordHash?: string // mock only
   profilePicture?: string
+  preferences: Preferences
   company?: string
   companyLogo?: string
   role?: string

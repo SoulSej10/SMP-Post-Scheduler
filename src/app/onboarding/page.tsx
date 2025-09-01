@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { User, Building2, Upload, ArrowRight, ArrowLeft, CheckCircle, PenTool } from "lucide-react"
-import { getSessionUser, updateUserProfile, completeOnboarding } from "@/lib/storage"
+import { getSessionUser, updateUserProfile, completeOnboarding, createCompany } from "@/lib/storage"
 
 type OnboardingData = {
   name: string
@@ -64,9 +64,12 @@ export default function OnboardingPage() {
       setIsLoading(true)
 
       if (user) {
+        const company = createCompany(formData.company, "", user.id)
+
         await updateUserProfile(user.id, {
           ...formData,
           onboardingCompleted: true,
+          currentCompanyId: company.id,
         })
         await completeOnboarding(user.id)
       }

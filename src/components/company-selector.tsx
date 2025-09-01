@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, ChevronsUpDown, Building2 } from "lucide-react"
+import { Check, ChevronsUpDown, Building2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -20,6 +20,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
   const [companies, setCompanies] = useState<Company[]>([])
   const [currentCompany, setCurrentCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(false)
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
     loadCompanies()
@@ -46,11 +47,12 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
 
   const handleCompanySwitch = async (companyId: string) => {
     const user = getSessionUser()
-    if (!user) return
+    if (!user || switching) return
 
+    setSwitching(true)
     setLoading(true)
 
-    // Simulate async operation
+    // Simulate async operation with longer delay for data loading
     setTimeout(() => {
       const success = switchUserCompany(user.id, companyId)
       if (success) {
@@ -58,9 +60,10 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
         setCurrentCompany(company)
         onCompanyChange?.(companyId)
       }
+      setSwitching(false)
       setLoading(false)
       setOpen(false)
-    }, 200)
+    }, 800) // Increased delay to simulate real data loading
   }
 
   if (companies.length === 0) {
@@ -77,6 +80,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
       <div className={cn("flex items-center gap-2", className)}>
         <Building2 className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">{currentCompany?.name}</span>
+        {switching && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
       </div>
     )
   }
@@ -89,13 +93,14 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
           role="combobox"
           aria-expanded={open}
           className={cn("justify-between min-w-[200px]", className)}
-          disabled={loading}
+          disabled={loading || switching}
         >
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
-            {currentCompany ? <span className="truncate">{currentCompany.name}</span> : "Select company..."}
+            {currentCompany ? <span className="truncate w-[auto - ] w-[auto - 1] w-[auto - 150px] w-auto">{currentCompany.name}</span> : "Select company..."}
+            {switching && <Loader2 className="h-3 w-3 animate-spin" />}
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
@@ -110,6 +115,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
                   value={company.name}
                   onSelect={() => handleCompanySwitch(company.id)}
                   className="flex items-center justify-between"
+                  disabled={switching}
                 >
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4" />

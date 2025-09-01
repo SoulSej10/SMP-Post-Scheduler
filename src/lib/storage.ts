@@ -278,3 +278,78 @@ export function switchUserCompany(userId: string, companyId: string): boolean {
   }
   return false
 }
+
+export function updatePostStatusBasedOnDate() {
+  const users = getUsers()
+  const now = new Date()
+
+  users.forEach((user) => {
+    const posts = getPostsForUser(user.id)
+    let hasUpdates = false
+
+    const updatedPosts = posts.map((post) => {
+      const scheduledDate = new Date(post.scheduledAt)
+      const dayAfterScheduled = new Date(scheduledDate.getTime() + 24 * 60 * 60 * 1000)
+
+      // If post was scheduled for yesterday or earlier and still has "scheduled" status, mark as failed
+      if (post.status === "scheduled" && now > dayAfterScheduled) {
+        hasUpdates = true
+        return { ...post, status: "failed" as const }
+      }
+
+      return post
+    })
+
+    if (hasUpdates) {
+      savePosts(user.id, updatedPosts)
+    }
+  })
+}
+
+export function getHistoricalPostData(userId: string, companyId?: string, days = 30): number[] {
+  const posts = getPostsForUser(userId, companyId)
+  const now = new Date()
+  const data: number[] = []
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+
+    const dayPosts = posts.filter((post) => {
+      const postDate = new Date(post.scheduledAt)
+      return postDate >= dayStart && postDate < dayEnd
+    })
+
+    data.push(dayPosts.length)
+  }
+
+  return data
+}
+
+export function getSuccessRateData(userId: string, companyId?: string, days = 30): number[] {
+  const posts = getPostsForUser(userId, companyId)
+  const now = new Date()
+  const data: number[] = []
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+
+    const dayPosts = posts.filter((post) => {
+      const postDate = new Date(post.scheduledAt)
+      return postDate >= dayStart && postDate < dayEnd
+    })
+
+    if (dayPosts.length === 0) {
+      data.push(0)
+    } else {
+      const successfulPosts = dayPosts.filter((post) => post.status === "posted").length
+      const successRate = Math.round((successfulPosts / dayPosts.length) * 100)
+      data.push(successRate)
+    }
+  }
+
+  return data
+}

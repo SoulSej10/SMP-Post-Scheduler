@@ -19,9 +19,19 @@ import EditPostModal from "@/components/edit-post-modal"
 import DeleteConfirmationModal from "@/components/delete-confirmation-modal"
 import BulkDeleteModal from "@/components/bulk-delete-modal"
 import MonthlyPostsTable from "@/components/monthly-posts-table"
+import MiniLineChart from "@/components/mini-line-chart"
 import { ToastProvider, useToast } from "@/components/toast-notification"
 import { LoadingOverlay } from "@/components/loading-spinner"
-import { getSessionUser, updatePost, deletePost, deletePosts, getPostsForUser } from "@/lib/storage"
+import {
+  getSessionUser,
+  updatePost,
+  deletePost,
+  deletePosts,
+  getPostsForUser,
+  updatePostStatusBasedOnDate,
+  getHistoricalPostData,
+  getSuccessRateData,
+} from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 import PostsDataTable from "@/components/posts-data-table"
 
@@ -51,6 +61,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const [bulkDeleteDate, setBulkDeleteDate] = useState<Date | null>(null)
   const [viewTitle, setViewTitle] = useState("")
   const [loading, setLoading] = useState(false)
+  const [companySwitchLoading, setCompanySwitchLoading] = useState(false)
 
   const isDashboardView = !platformFilter
 
@@ -66,6 +77,8 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
       router.push("/onboarding")
       return
     }
+
+    updatePostStatusBasedOnDate()
   }, [router])
 
   const [posts, setPosts] = useState<Post[]>([])
@@ -83,14 +96,28 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     loadPosts()
   }, [])
 
-  // Refresh posts when modals close
+  const handleCompanyChange = (companyId: string) => {
+    setCompanySwitchLoading(true)
+
+    // Simulate data loading delay when switching companies
+    setTimeout(() => {
+      loadPosts()
+      setCompanySwitchLoading(false)
+
+      showToast({
+        type: "success",
+        title: "Company Switched",
+        message: "Successfully switched to the selected company.",
+      })
+    }, 500)
+  }
+
   useEffect(() => {
     if (!openCreate) {
       loadPosts()
     }
   }, [openCreate])
 
-  // filtered posts based on platform from sidebar
   const filtered = useMemo(() => {
     return posts.filter((p) => {
       return !platformFilter || p.platform === platformFilter
@@ -99,9 +126,19 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
   const ongoingCount = filtered.filter((p) => p.status === "scheduled").length
 
-  // Generate months for dashboard view (all months)
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
+
+  const chartData = useMemo(() => {
+    const user = getSessionUser()
+    if (!user) return { thisMonth: [], next7Days: [], successRate: [] }
+
+    return {
+      thisMonth: getHistoricalPostData(user.id, user.currentCompanyId, 30),
+      next7Days: getHistoricalPostData(user.id, user.currentCompanyId, 7),
+      successRate: getSuccessRateData(user.id, user.currentCompanyId, 30),
+    }
+  }, [posts])
 
   const allOrderedMonths = useMemo(() => {
     const months = []
@@ -137,7 +174,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     return months
   }, [currentMonth, currentYear])
 
-  // Generate months for platform filtering view (only relevant months)
   const platformRelevantMonths = useMemo(() => {
     if (!platformFilter) return []
 
@@ -317,9 +353,9 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   }
 
   return (
-    <LoadingOverlay loading={loading}>
+    <LoadingOverlay loading={loading || companySwitchLoading}>
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebar onCompanyChange={handleCompanyChange} />
         <SidebarInset>
           <div className="flex w-full flex-col">
             <div className="flex items-center gap-2 border-b bg-background px-4 py-2">
@@ -331,12 +367,15 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                     {getPlatformName(platformFilter)}
                   </Badge>
                 )}
+                {companySwitchLoading && (
+                  <Badge variant="secondary" className="ml-2">
+                    Loading...
+                  </Badge>
+                )}
               </div>
             </div>
 
-            {/* Top Action Bar */}
             <div className="border-b px-4 py-3">
-              {/* Mobile Layout */}
               <div className="flex flex-col gap-3 sm:hidden">
                 <div className="flex items-center justify-between">
                   <h1 className="text-lg font-semibold">
@@ -365,7 +404,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                 </div>
               </div>
 
-              {/* Desktop Layout */}
               <div className="hidden sm:flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <h1 className="text-lg font-semibold">
@@ -398,27 +436,30 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
             <main className="container mx-auto p-6">
               {isDashboardView ? (
-                // Dashboard View - Show all months and overview stats
                 <>
-                  {/* Quick Stats - Dashboard only */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">This Month</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {
-                            filtered.filter((p) => {
-                              const postDate = new Date(p.scheduledAt)
-                              const now = new Date()
-                              return (
-                                postDate.getMonth() === now.getMonth() && postDate.getFullYear() === now.getFullYear()
-                              )
-                            }).length
-                          }
+                      <CardContent className="flex items-center justify-between">
+                        <div>
+                          <div className="text-2xl font-bold">
+                            {
+                              filtered.filter((p) => {
+                                const postDate = new Date(p.scheduledAt)
+                                const now = new Date()
+                                return (
+                                  postDate.getMonth() === now.getMonth() && postDate.getFullYear() === now.getFullYear()
+                                )
+                              }).length
+                            }
+                          </div>
+                          <p className="text-xs text-muted-foreground">scheduled posts</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">scheduled posts</p>
+                        <div className="w-20 h-12">
+                          <MiniLineChart data={chartData.thisMonth} color="#3b82f6" />
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -426,18 +467,23 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Next 7 Days</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {
-                            filtered.filter((p) => {
-                              const postDate = new Date(p.scheduledAt)
-                              const now = new Date()
-                              const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-                              return postDate >= now && postDate <= nextWeek
-                            }).length
-                          }
+                      <CardContent className="flex items-center justify-between">
+                        <div>
+                          <div className="text-2xl font-bold">
+                            {
+                              filtered.filter((p) => {
+                                const postDate = new Date(p.scheduledAt)
+                                const now = new Date()
+                                const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+                                return postDate >= now && postDate <= nextWeek
+                              }).length
+                            }
+                          </div>
+                          <p className="text-xs text-muted-foreground">upcoming posts</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">upcoming posts</p>
+                        <div className="w-20 h-12">
+                          <MiniLineChart data={chartData.next7Days} color="#f59e0b" />
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -445,30 +491,34 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {filtered.length > 0
-                            ? Math.round((filtered.filter((p) => p.status === "posted").length / filtered.length) * 100)
-                            : 0}
-                          %
+                      <CardContent className="flex items-center justify-between">
+                        <div>
+                          <div className="text-2xl font-bold">
+                            {filtered.length > 0
+                              ? Math.round(
+                                  (filtered.filter((p) => p.status === "posted").length / filtered.length) * 100,
+                                )
+                              : 0}
+                            %
+                          </div>
+                          <p className="text-xs text-muted-foreground">posts delivered</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">posts delivered</p>
+                        <div className="w-20 h-12">
+                          <MiniLineChart data={chartData.successRate} color="#10b981" />
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Monthly Posts Table - Dashboard only */}
                   <div className="mb-8">
                     <MonthlyPostsTable posts={filtered} onUpdatePost={handleUpdateMonthlyPost} />
                   </div>
 
-                  {/* Calendar Overview - Dashboard only */}
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-xl font-semibold">{currentYear} Calendar Overview</h2>
                     </div>
 
-                    {/* Mobile View - Only Active Calendars */}
                     <div className="sm:hidden mb-4">
                       <MobileCalendarFilter
                         posts={filtered}
@@ -478,7 +528,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                       />
                     </div>
 
-                    {/* Desktop View - All Calendars */}
                     <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {allOrderedMonths.map(({ month, year, isInactive }) => (
                         <MiniCalendar
@@ -494,7 +543,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                     </div>
                   </div>
 
-                  {/* Data Table - Dashboard only */}
                   <PostsDataTable
                     posts={filtered}
                     onViewPost={handleViewPost}
@@ -503,9 +551,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                   />
                 </>
               ) : (
-                // Platform Filtering View - Show relevant months and schedule list
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Mini Calendars - Platform filtering only */}
                   <div className="lg:col-span-1">
                     <h2 className="text-lg font-semibold mb-4">{getPlatformName(platformFilter)} Calendar</h2>
                     <div className="space-y-4">
@@ -523,7 +569,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                     </div>
                   </div>
 
-                  {/* Schedule List - Platform filtering only */}
                   <div className="lg:col-span-2">
                     <h2 className="text-lg font-semibold mb-4">Scheduled Posts</h2>
                     <ScheduleList
