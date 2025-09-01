@@ -45,7 +45,11 @@ import { getSessionUser, logoutLocal, getUserProfile } from "@/lib/storage"
 import CompanySelector from "@/components/company-selector"
 import CreateCompanyModal from "@/components/create-company-modal"
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  onCompanyChange?: (companyId: string) => void
+}
+
+export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPlatform = searchParams.get("platform")
