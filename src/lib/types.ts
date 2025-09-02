@@ -14,7 +14,7 @@ export type User = {
   id: string
   email: string
   name: string
-  passwordHash?: string // mock only
+  passwordHash?: string 
   profilePicture?: string
   company?: string
   companyLogo?: string
@@ -23,6 +23,11 @@ export type User = {
   onboardingCompleted?: boolean
   currentCompanyId?: string | null// Currently selected company
   companies?: string[] // Company IDs user has access to
+  bio?: string   
+  preferences?: {   
+    emailNotifications: boolean
+    [key: string]: any
+  }
 }
 
 export type Post = {
