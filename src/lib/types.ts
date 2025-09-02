@@ -10,6 +10,12 @@ export type Company = {
   members?: string[] // User IDs who have access to this company
 }
 
+export type Preferences = {
+  emailNotifications: boolean
+  pushNotifications: boolean
+  weeklyReports: boolean
+}
+
 export type User = {
   id: string
   email: string
@@ -21,13 +27,10 @@ export type User = {
   role?: string
   phone?: string
   onboardingCompleted?: boolean
-  currentCompanyId?: string | null// Currently selected company
+  currentCompanyId?: string | null // Currently selected company
   companies?: string[] // Company IDs user has access to
   bio?: string   
-  preferences?: {   
-    emailNotifications: boolean
-    [key: string]: any
-  }
+  preferences?: Preferences
 }
 
 export type Post = {
