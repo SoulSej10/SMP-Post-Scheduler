@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle,
   Plus,
+  Bell,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -29,7 +30,13 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,33 +48,46 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { getSessionUser, logoutLocal, getUserProfile } from "@/lib/storage"
+import { Badge } from "@/components/ui/badge"
+import { getSessionUser, logoutLocal, getUserProfile, getUnreadNotificationCount } from "@/lib/storage"
 import CompanySelector from "@/components/company-selector"
 import CreateCompanyModal from "@/components/create-company-modal"
+import NotificationModal from "@/components/notification-modal"
 
-type AppSidebarProps = {
+type Props = {
   onCompanyChange?: (companyId: string) => void
 }
 
-export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
+export function AppSidebar({ onCompanyChange }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPlatform = searchParams.get("platform")
   const [userName, setUserName] = useState("User")
+  const [userEmail, setUserEmail] = useState("")
   const [userProfile, setUserProfile] = useState<any>(null)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [showCreateCompany, setShowCreateCompany] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     const user = getSessionUser()
     if (user?.name) {
       setUserName(user.name)
+      setUserEmail(user.email)
       // Load full profile for avatar
       const profile = getUserProfile(user.id)
       setUserProfile(profile)
     }
+    setUnreadCount(getUnreadNotificationCount())
   }, [])
+
+  useEffect(() => {
+    if (!showNotifications) {
+      setUnreadCount(getUnreadNotificationCount())
+    }
+  }, [showNotifications])
 
   const mainItems = [
     { title: "Dashboard", href: "/", icon: Home },
@@ -107,12 +127,16 @@ export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
 
   const handleCompanyChange = (companyId: string) => {
     setRefreshKey((prev) => prev + 1)
+    // Call the parent's onCompanyChange if provided
+    onCompanyChange?.(companyId)
     // Refresh the current page to load data for the new company
     router.refresh()
   }
 
   const handleCompanyCreated = (companyId: string) => {
     setRefreshKey((prev) => prev + 1)
+    // Call the parent's onCompanyChange if provided
+    onCompanyChange?.(companyId)
     // Refresh the current page to load data for the new company
     router.refresh()
   }
@@ -201,9 +225,9 @@ export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton className="w-full" tooltip={userName}>
+                  <SidebarMenuButton className="w-full" tooltip={`${userName} (${userEmail})`}>
                     {userProfile?.profilePicture ? (
-                      <div className="w-4 h-4 rounded-full overflow-hidden">
+                      <div className="rounded-full overflow-hidden h-7 w-7">
                         <img
                           src={userProfile.profilePicture || "/placeholder.svg"}
                           alt="Profile"
@@ -213,10 +237,33 @@ export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
                     ) : (
                       <User className="h-4 w-4" />
                     )}
-                    <span>{userName}</span>
+                    <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
+                      <span className="text-sm font-medium">{userName}</span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">{userEmail}</span>
+                    </div>
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="start" className="w-(--radix-popper-anchor-width)">
+                <DropdownMenuContent side="top" align="start" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center">
+                      <UserCircle className="h-4 w-4 mr-2" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowNotifications(true)}>
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center">
+                        <Bell className="h-4 w-4 mr-2" />
+                        Notifications
+                      </div>
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="text-xs h-5 min-w-5 px-1">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setShowLogoutDialog(true)} className="text-red-600">
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
@@ -251,6 +298,8 @@ export function AppSidebar({ onCompanyChange }: AppSidebarProps) {
         onOpenChange={setShowCreateCompany}
         onCompanyCreated={handleCompanyCreated}
       />
+
+      <NotificationModal open={showNotifications} onOpenChange={setShowNotifications} />
     </>
   )
 }

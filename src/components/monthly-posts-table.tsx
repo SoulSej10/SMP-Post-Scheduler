@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,13 +16,20 @@ import {
   Share2,
   Copy,
   Check,
+  Users,
+  Eye,
+  MessageSquare,
+  CheckCircle,
+  Edit,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/toast-notification"
-import type { Post, Platform } from "@/lib/types"
+import { getSessionUser, getCompanyMembers, createShareLink, createNotification } from "@/lib/storage"
+import type { Post, Platform, SharePrivilege, CompanyMember } from "@/lib/types"
 
 type Props = {
   posts: Post[]
@@ -91,6 +99,37 @@ const PLATFORM_CONFIG = {
   },
 }
 
+const PRIVILEGE_OPTIONS = [
+  {
+    value: "view" as SharePrivilege,
+    label: "View Only",
+    description: "Can view posts and content",
+    icon: Eye,
+    color: "text-blue-600",
+  },
+  {
+    value: "feedback" as SharePrivilege,
+    label: "Add Feedback",
+    description: "Can view and add feedback/notes",
+    icon: MessageSquare,
+    color: "text-green-600",
+  },
+  {
+    value: "approve" as SharePrivilege,
+    label: "Approve Posts",
+    description: "Can view, feedback, and change approval status",
+    icon: CheckCircle,
+    color: "text-purple-600",
+  },
+  {
+    value: "edit" as SharePrivilege,
+    label: "Full Access",
+    description: "Can view, feedback, approve, and edit content",
+    icon: Edit,
+    color: "text-orange-600",
+  },
+]
+
 export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   const { showToast } = useToast()
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
@@ -99,6 +138,11 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareUrl, setShareUrl] = useState("")
   const [copied, setCopied] = useState(false)
+  const [selectedPrivileges, setSelectedPrivileges] = useState<SharePrivilege[]>(["view", "feedback"])
+  const [recipientEmail, setRecipientEmail] = useState("")
+  const [recipientName, setRecipientName] = useState("")
+  const [companyMembers, setCompanyMembers] = useState<CompanyMember[]>([])
+  const [selectedMember, setSelectedMember] = useState<CompanyMember | null>(null)
 
   const availablePlatforms = useMemo(() => {
     const platforms = new Set<Platform>()
@@ -117,7 +161,14 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
     }
   }, [availablePlatforms, selectedPlatform])
 
-  // Filter posts for the current month
+  useEffect(() => {
+    const user = getSessionUser()
+    if (user?.currentCompanyId) {
+      const members = getCompanyMembers(user.currentCompanyId)
+      setCompanyMembers(members)
+    }
+  }, [])
+
   const monthlyPosts = useMemo(() => {
     return posts
       .filter((post) => {
@@ -129,7 +180,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
   }, [posts, currentMonth, currentYear, selectedPlatform])
 
-  // Group posts by date
   const postsByDate = useMemo(() => {
     const grouped: Record<string, PostWithExtras[]> = {}
     monthlyPosts.forEach((post) => {
@@ -174,21 +224,76 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   }
 
   const handleShare = () => {
-    // Generate a shareable URL with current view parameters
+    setSelectedPrivileges(["view", "feedback"])
+    setRecipientEmail("")
+    setRecipientName("")
+    setSelectedMember(null)
+    setShowShareModal(true)
+  }
+
+  const handleSelectMember = (member: CompanyMember) => {
+    setSelectedMember(member)
+    setRecipientEmail(member.email)
+    setRecipientName(member.name)
+  }
+
+  const handlePrivilegeToggle = (privilege: SharePrivilege) => {
+    setSelectedPrivileges((prev) => {
+      const newPrivileges = prev.includes(privilege) ? prev.filter((p) => p !== privilege) : [...prev, privilege]
+
+      if (newPrivileges.length > 0 && !newPrivileges.includes("view")) {
+        newPrivileges.unshift("view")
+      }
+
+      return newPrivileges
+    })
+  }
+
+  const generateShareUrl = () => {
+    const user = getSessionUser()
+    if (!user || selectedPrivileges.length === 0) return
+
+    const shareLink = createShareLink({
+      userId: user.id,
+      companyId: user.currentCompanyId!,
+      month: currentMonth,
+      year: currentYear,
+      platform: selectedPlatform || undefined,
+      privileges: selectedPrivileges,
+      recipientEmail: recipientEmail || undefined,
+      recipientName: recipientName || undefined,
+    })
+
     const params = new URLSearchParams({
+      shareId: shareLink.id,
       month: currentMonth.toString(),
       year: currentYear.toString(),
       platform: selectedPlatform || "all",
-      view: "shared",
+      privileges: selectedPrivileges.join(","),
     })
 
     const baseUrl = window.location.origin
     const generatedUrl = `${baseUrl}/shared/monthly-overview?${params.toString()}`
     setShareUrl(generatedUrl)
-    setShowShareModal(true)
+
+    createNotification(
+      "share",
+      "Content Shared",
+      `Monthly overview shared with ${recipientName || recipientEmail || "recipient"} with ${selectedPrivileges.join(", ")} privileges.`,
+      {
+        shareId: shareLink.id,
+        recipient: recipientName || recipientEmail,
+        privileges: selectedPrivileges,
+      },
+    )
   }
 
   const handleCopyUrl = async () => {
+    if (!shareUrl) {
+      generateShareUrl()
+      return
+    }
+
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
@@ -233,18 +338,17 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   }
 
   const formatPostContent = (content: string): string => {
-    // Convert markdown-style formatting to HTML for proper display
     return content
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // **bold**
-      .replace(/\*(.*?)\*/g, "<em>$1</em>") // *italic*
-      .replace(/__(.*?)__/g, "<u>$1</u>") // __underline__
-      .replace(/~~(.*?)~~/g, "<del>$1</del>") // ~~strikethrough~~
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-xs">$1</code>') // `code`
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/__(.*?)__/g, "<u>$1</u>")
+      .replace(/~~(.*?)~~/g, "<del>$1</del>")
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-xs">$1</code>')
       .replace(
         /https?:\/\/[^\s]+/g,
         '<a href="$&" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$&</a>',
-      ) // URLs
-      .replace(/\n/g, "<br>") // Line breaks
+      )
+      .replace(/\n/g, "<br>")
   }
 
   if (availablePlatforms.length === 0) {
@@ -284,10 +388,8 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            {/* Title and Platform Buttons */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               <CardTitle className="text-lg">Monthly Posts Overview</CardTitle>
-
               {availablePlatforms.length > 0 && (
                 <>
                   <span className="text-muted-foreground hidden sm:inline">|</span>
@@ -314,8 +416,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                 </>
               )}
             </div>
-
-            {/* Month Navigation and Share Button */}
             <div className="flex items-center gap-1 sm:gap-2">
               <Button variant="outline" size="sm" onClick={handleShare} className="h-8 px-3 bg-transparent">
                 <Share2 className="h-4 w-4 mr-1" />
@@ -348,7 +448,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
         <CardContent>
           <div className="overflow-x-auto">
             <div className="min-w-max lg:min-w-0">
-              {/* Date Headers */}
               <div
                 className="grid gap-4 mb-6 lg:gap-6"
                 style={{ gridTemplateColumns: `repeat(${dateKeys.length}, minmax(280px, 350px))` }}
@@ -366,8 +465,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                   </div>
                 ))}
               </div>
-
-              {/* Images Section */}
               <div>
                 <div
                   className="grid gap-4 lg:gap-6"
@@ -392,7 +489,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                                   className="w-full aspect-[2/1] object-cover transition-all duration-300 group-hover:scale-110 group-hover:aspect-square"
                                   crossOrigin="anonymous"
                                 />
-                                {/* Hover overlay with full image */}
                                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white rounded-lg border-2 border-primary shadow-lg z-10 overflow-hidden">
                                   <img
                                     src={fullImageUrl || "/placeholder.svg"}
@@ -414,8 +510,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                   ))}
                 </div>
               </div>
-
-              {/* Content Section */}
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-0">
                   Content
@@ -446,8 +540,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                   ))}
                 </div>
               </div>
-
-              {/* Feedback Section */}
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-0">
                   Feedback & Notes
@@ -472,8 +564,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
                   ))}
                 </div>
               </div>
-
-              {/* Approval Section */}
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-0">
                   Approval Status
@@ -512,8 +602,6 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
               </div>
             </div>
           </div>
-
-          {/* Custom scrollbar styles */}
           <style jsx>{`
             .prose::-webkit-scrollbar {
               width: 6px;
@@ -534,35 +622,136 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
       </Card>
 
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Share Monthly Overview</DialogTitle>
             <DialogDescription>
-              Share this monthly posts overview with clients or team members. They can view and add feedback to the
-              posts.
+              Share this monthly posts overview with specific privileges. Choose what recipients can do with the shared
+              content.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="share-url">Shareable Link</Label>
-              <div className="flex gap-2">
-                <Input id="share-url" value={shareUrl} readOnly className="flex-1" />
-                <Button size="sm" onClick={handleCopyUrl} className="px-3">
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
+
+          <div className="space-y-6">
+            {companyMembers.length > 0 && (
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Quick Select from Company Members</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                  {companyMembers.map((member) => (
+                    <Button
+                      key={member.id}
+                      variant={selectedMember?.id === member.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleSelectMember(member)}
+                      className="justify-start h-auto p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <div className="text-left">
+                          <div className="font-medium text-sm">{member.name}</div>
+                          <div className="text-xs text-muted-foreground">{member.email}</div>
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+                <Separator />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="recipient-name">Recipient Name (Optional)</Label>
+                <Input
+                  id="recipient-name"
+                  placeholder="John Doe"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="recipient-email">Recipient Email (Optional)</Label>
+                <Input
+                  id="recipient-email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                />
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              <p>Recipients can:</p>
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>
-                  View all posts for {monthNames[currentMonth]} {currentYear}
-                </li>
-                <li>Add feedback and notes to individual posts</li>
-                <li>Update approval status</li>
-                <li>Changes sync back to your dashboard in real-time</li>
-              </ul>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Access Privileges</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PRIVILEGE_OPTIONS.map((option) => {
+                  const Icon = option.icon
+                  const isSelected = selectedPrivileges.includes(option.value)
+                  const isViewRequired = option.value !== "view" && selectedPrivileges.some((p) => p !== "view")
+
+                  return (
+                    <div
+                      key={option.value}
+                      className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => handlePrivilegeToggle(option.value)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => handlePrivilegeToggle(option.value)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Icon className={`h-4 w-4 ${option.color}`} />
+                          <span className="font-medium text-sm">{option.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {selectedPrivileges.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Please select at least one privilege to generate a shareable link.
+                </p>
+              )}
             </div>
+
+            {selectedPrivileges.length > 0 && (
+              <div className="space-y-3">
+                <Label htmlFor="share-url">Shareable Link</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="share-url"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1"
+                    placeholder="Click 'Generate & Copy' to create link"
+                  />
+                  <Button size="sm" onClick={handleCopyUrl} className="px-3">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium mb-2">Recipients will be able to:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {selectedPrivileges.includes("view") && (
+                      <li>
+                        View all posts for {monthNames[currentMonth]} {currentYear}
+                      </li>
+                    )}
+                    {selectedPrivileges.includes("feedback") && <li>Add feedback and notes to individual posts</li>}
+                    {selectedPrivileges.includes("approve") && <li>Update approval status of posts</li>}
+                    {selectedPrivileges.includes("edit") && <li>Edit post content and details</li>}
+                    <li>Changes sync back to your dashboard in real-time</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -25,9 +26,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Building2, Edit, Trash2, Plus, Users } from "lucide-react"
-import { getSessionUser, getUserCompanies, switchUserCompany } from "@/lib/storage"
-import type { Company } from "@/lib/types"
+import { Building2, Edit, Trash2, Plus, Users, UserPlus, Mail, Crown, Shield, Eye, X } from "lucide-react"
+import {
+  getSessionUser,
+  getUserCompanies,
+  switchUserCompany,
+  getCompanyMembers,
+  addCompanyMember,
+  removeCompanyMember,
+  updateCompanyMember,
+} from "@/lib/storage"
+import type { Company, CompanyMember } from "@/lib/types"
 import CreateCompanyModal from "@/components/create-company-modal"
 
 export default function CompanyManagementCard() {
@@ -36,8 +45,15 @@ export default function CompanyManagementCard() {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [deletingCompany, setDeletingCompany] = useState<Company | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showMembersModal, setShowMembersModal] = useState(false)
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [companyMembers, setCompanyMembers] = useState<CompanyMember[]>([])
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
+  const [newMemberEmail, setNewMemberEmail] = useState("")
+  const [newMemberName, setNewMemberName] = useState("")
+  const [newMemberRole, setNewMemberRole] = useState<CompanyMember["role"]>("member")
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -53,6 +69,11 @@ export default function CompanyManagementCard() {
     setCurrentCompanyId(user.currentCompanyId || null)
   }
 
+  const loadCompanyMembers = (companyId: string) => {
+    const members = getCompanyMembers(companyId)
+    setCompanyMembers(members)
+  }
+
   const handleEditCompany = (company: Company) => {
     setEditingCompany(company)
     setEditName(company.name)
@@ -64,16 +85,13 @@ export default function CompanyManagementCard() {
 
     setLoading(true)
 
-    // Simulate async operation
     setTimeout(() => {
-      // Update company in storage (would need to implement updateCompany function)
       const updatedCompany = {
         ...editingCompany,
         name: editName.trim(),
         description: editDescription.trim(),
       }
 
-      // For now, just update local state
       setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? updatedCompany : c)))
 
       setEditingCompany(null)
@@ -92,12 +110,9 @@ export default function CompanyManagementCard() {
 
     setLoading(true)
 
-    // Simulate async operation
     setTimeout(() => {
-      // Remove company from storage (would need to implement deleteCompany function)
       setCompanies((prev) => prev.filter((c) => c.id !== deletingCompany.id))
 
-      // If deleting current company, switch to first available
       if (deletingCompany.id === currentCompanyId && companies.length > 1) {
         const remainingCompanies = companies.filter((c) => c.id !== deletingCompany.id)
         if (remainingCompanies.length > 0) {
@@ -130,6 +145,82 @@ export default function CompanyManagementCard() {
       setCurrentCompanyId(companyId)
       setLoading(false)
     }, 300)
+  }
+
+  const handleManageMembers = (company: Company) => {
+    setSelectedCompany(company)
+    loadCompanyMembers(company.id)
+    setShowMembersModal(true)
+  }
+
+  const handleAddMember = () => {
+    if (!selectedCompany || !newMemberEmail.trim() || !newMemberName.trim()) return
+
+    setLoading(true)
+
+    setTimeout(() => {
+      addCompanyMember(selectedCompany.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole)
+      loadCompanyMembers(selectedCompany.id)
+      setNewMemberEmail("")
+      setNewMemberName("")
+      setNewMemberRole("member")
+      setShowAddMemberModal(false)
+      setLoading(false)
+    }, 500)
+  }
+
+  const handleRemoveMember = (memberId: string) => {
+    if (!selectedCompany) return
+
+    setLoading(true)
+
+    setTimeout(() => {
+      removeCompanyMember(selectedCompany.id, memberId)
+      loadCompanyMembers(selectedCompany.id)
+      setLoading(false)
+    }, 300)
+  }
+
+  const handleUpdateMemberRole = (memberId: string, newRole: CompanyMember["role"]) => {
+    if (!selectedCompany) return
+
+    setLoading(true)
+
+    setTimeout(() => {
+      updateCompanyMember(selectedCompany.id, memberId, { role: newRole })
+      loadCompanyMembers(selectedCompany.id)
+      setLoading(false)
+    }, 300)
+  }
+
+  const getRoleIcon = (role: CompanyMember["role"]) => {
+    switch (role) {
+      case "owner":
+        return <Crown className="h-3 w-3 text-yellow-600" />
+      case "admin":
+        return <Shield className="h-3 w-3 text-blue-600" />
+      case "member":
+        return <Users className="h-3 w-3 text-green-600" />
+      case "viewer":
+        return <Eye className="h-3 w-3 text-gray-600" />
+      default:
+        return <Users className="h-3 w-3 text-gray-600" />
+    }
+  }
+
+  const getRoleBadgeVariant = (role: CompanyMember["role"]) => {
+    switch (role) {
+      case "owner":
+        return "default"
+      case "admin":
+        return "secondary"
+      case "member":
+        return "outline"
+      case "viewer":
+        return "secondary"
+      default:
+        return "outline"
+    }
   }
 
   return (
@@ -199,6 +290,17 @@ export default function CompanyManagementCard() {
                       disabled={loading}
                     >
                       Switch
+                    </Button>
+                  )}
+                  {company.ownerId === getSessionUser()?.id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleManageMembers(company)}
+                      disabled={loading}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <Users className="h-4 w-4" />
                     </Button>
                   )}
                   {company.ownerId === getSessionUser()?.id && (
@@ -276,6 +378,185 @@ export default function CompanyManagementCard() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showMembersModal} onOpenChange={setShowMembersModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Manage Members - {selectedCompany?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Add, remove, and manage member roles for your company. Members can be invited to collaborate on posts and
+              projects.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">Company Members</Label>
+                <p className="text-sm text-muted-foreground">
+                  {companyMembers.length} member{companyMembers.length !== 1 ? "s" : ""} total
+                </p>
+              </div>
+              <Button onClick={() => setShowAddMemberModal(true)} size="sm" className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Add Member
+              </Button>
+            </div>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {companyMembers.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{member.name}</span>
+                        <Badge variant={getRoleBadgeVariant(member.role)} className="text-xs flex items-center gap-1">
+                          {getRoleIcon(member.role)}
+                          {member.role}
+                        </Badge>
+                        {member.status === "pending" && (
+                          <Badge variant="outline" className="text-xs">
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Invited {new Date(member.invitedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {member.role !== "owner" && (
+                      <Select
+                        value={member.role}
+                        onValueChange={(value: CompanyMember["role"]) => handleUpdateMemberRole(member.id, value)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger className="w-24 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {member.role !== "owner" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMember(member.id)}
+                        disabled={loading}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {companyMembers.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-sm">No members yet</p>
+                <p className="text-xs">Add members to collaborate on your company's content</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddMemberModal} onOpenChange={setShowAddMemberModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Team Member</DialogTitle>
+            <DialogDescription>
+              Invite a new member to join your company. They'll receive an invitation to collaborate.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="member-name">Full Name</Label>
+              <Input
+                id="member-name"
+                value={newMemberName}
+                onChange={(e) => setNewMemberName(e.target.value)}
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="member-email">Email Address</Label>
+              <Input
+                id="member-email"
+                type="email"
+                value={newMemberEmail}
+                onChange={(e) => setNewMemberEmail(e.target.value)}
+                placeholder="john@example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="member-role">Role</Label>
+              <Select value={newMemberRole} onValueChange={(value: CompanyMember["role"]) => setNewMemberRole(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <div className="font-medium">Admin</div>
+                        <div className="text-xs text-muted-foreground">Can manage members and settings</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="member">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-green-600" />
+                      <div>
+                        <div className="font-medium">Member</div>
+                        <div className="text-xs text-muted-foreground">Can create and edit posts</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="viewer">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-gray-600" />
+                      <div>
+                        <div className="font-medium">Viewer</div>
+                        <div className="text-xs text-muted-foreground">Can only view content</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddMemberModal(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddMember} disabled={loading || !newMemberEmail.trim() || !newMemberName.trim()}>
+              {loading ? "Adding..." : "Add Member"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Company Dialog */}
       <AlertDialog open={!!deletingCompany} onOpenChange={() => setDeletingCompany(null)}>
         <AlertDialogContent>
@@ -299,7 +580,6 @@ export default function CompanyManagementCard() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Create Company Modal */}
       <CreateCompanyModal
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
