@@ -1,10 +1,13 @@
 "use client"
 import { Suspense } from "react"
 import type React from "react"
+
 import MobileCalendarFilter from "@/components/mobile-calendar-filter"
+import NotificationModal from "@/components/notification-modal"
+import PostsDataTable from "@/components/posts-data-table"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { Filter, Plus } from "lucide-react"
+import { Filter, Plus, Bell } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -31,18 +34,12 @@ import {
   updatePostStatusBasedOnDate,
   getHistoricalPostData,
   getSuccessRateData,
+  getUnreadNotificationCount,
 } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
-import PostsDataTable from "@/components/posts-data-table"
-
-function SearchParamsProvider({ children }: { children: (platformFilter: Platform | null) => React.ReactNode }) {
-  const searchParams = useSearchParams()
-  const platformFilter = searchParams.get("platform") as Platform | null
-  return <>{children(platformFilter)}</>
-}
 
 type DashboardContentProps = {
-  platformFilter: Platform | null
+  platformFilter: string | null
 }
 
 function DashboardContent({ platformFilter }: DashboardContentProps) {
@@ -54,6 +51,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const [openEditPost, setOpenEditPost] = useState(false)
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false)
   const [openBulkDelete, setOpenBulkDelete] = useState(false)
+  const [openNotifications, setOpenNotifications] = useState(false)
   const [selectedPosts, setSelectedPosts] = useState<Post[]>([])
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [deletingPost, setDeletingPost] = useState<Post | null>(null)
@@ -62,6 +60,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const [viewTitle, setViewTitle] = useState("")
   const [loading, setLoading] = useState(false)
   const [companySwitchLoading, setCompanySwitchLoading] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const isDashboardView = !platformFilter
 
@@ -79,7 +78,14 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     }
 
     updatePostStatusBasedOnDate()
+    setUnreadCount(getUnreadNotificationCount())
   }, [router])
+
+  useEffect(() => {
+    if (!openNotifications) {
+      setUnreadCount(getUnreadNotificationCount())
+    }
+  }, [openNotifications])
 
   const [posts, setPosts] = useState<Post[]>([])
 
@@ -87,7 +93,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     const user = getSessionUser()
     if (!user) return
 
-    // Use the updated getPostsForUser function with company filtering
     const companyPosts = getPostsForUser(user.id, user.currentCompanyId)
     setPosts(companyPosts)
   }
@@ -99,7 +104,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const handleCompanyChange = (companyId: string) => {
     setCompanySwitchLoading(true)
 
-    // Simulate data loading delay when switching companies
     setTimeout(() => {
       loadPosts()
       setCompanySwitchLoading(false)
@@ -143,7 +147,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const allOrderedMonths = useMemo(() => {
     const months = []
 
-    // Current month first
     months.push({
       month: currentMonth,
       year: currentYear,
@@ -151,7 +154,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
       isInactive: false,
     })
 
-    // Upcoming months
     for (let i = currentMonth + 1; i < 12; i++) {
       months.push({
         month: i,
@@ -161,7 +163,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
       })
     }
 
-    // Previous months (at the bottom)
     for (let i = 0; i < currentMonth; i++) {
       months.push({
         month: i,
@@ -182,7 +183,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
-    // Check if current month has posts for this platform
     const currentMonthPosts = filtered.filter((p) => {
       const postDate = new Date(p.scheduledAt)
       return postDate >= currentMonthStart && postDate < nextMonthStart
@@ -197,7 +197,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
       })
     }
 
-    // Check if next month has posts for this platform (if we're not in December)
     if (currentMonth < 11) {
       const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1)
       const nextMonthPosts = filtered.filter((p) => {
@@ -215,7 +214,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
       }
     }
 
-    // If no posts in current or next month, show current month anyway
     if (relevantMonths.length === 0) {
       relevantMonths.push({
         month: currentMonth,
@@ -254,7 +252,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
     setLoading(true)
 
-    // Simulate async operation
     setTimeout(() => {
       updatePost(user.id, updatedPost)
       loadPosts()
@@ -288,7 +285,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
     setLoading(true)
 
-    // Simulate async operation
     setTimeout(() => {
       deletePost(user.id, deletingPost.id)
       loadPosts()
@@ -310,7 +306,6 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
 
     setLoading(true)
 
-    // Simulate async operation
     setTimeout(() => {
       const postIds = bulkDeletePosts.map((p) => p.id)
       deletePosts(user.id, postIds)
@@ -328,11 +323,10 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     }, 800)
   }
 
-  const handleUpdateMonthlyPost = (postId: string, updates: any) => {
+  const handleUpdateMonthlyPost = (postId: string, updates: Partial<Post>) => {
     const user = getSessionUser()
     if (!user) return
 
-    // Find the post and update it with the new fields
     const post = posts.find((p) => p.id === postId)
     if (post) {
       const updatedPost = { ...post, ...updates }
@@ -347,7 +341,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     }
   }
 
-  const getPlatformName = (platform: Platform | null) => {
+  const getPlatformName = (platform: string | null) => {
     if (!platform) return "All Platforms"
     return platform.charAt(0).toUpperCase() + platform.slice(1)
   }
@@ -360,7 +354,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
           <div className="flex w-full flex-col">
             <div className="flex items-center gap-2 border-b bg-background px-4 py-2">
               <SidebarTrigger />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <span className="font-medium">{isDashboardView ? "Dashboard" : "Schedules"}</span>
                 {platformFilter && (
                   <Badge variant="outline" className="ml-2">
@@ -373,6 +367,17 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                   </Badge>
                 )}
               </div>
+              <Button variant="ghost" size="sm" onClick={() => setOpenNotifications(true)} className="relative">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center"
+                  >
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Badge>
+                )}
+              </Button>
             </div>
 
             <div className="border-b px-4 py-3">
@@ -573,7 +578,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
                     <h2 className="text-lg font-semibold mb-4">Scheduled Posts</h2>
                     <ScheduleList
                       posts={filtered}
-                      platform={platformFilter!}
+                      platform={platformFilter as Platform}
                       onViewPost={handleViewPost}
                       onEditPost={handleEditPost}
                       onDeletePost={handleDeletePost}
@@ -616,6 +621,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
           onOpenChange={setOpenBulkDelete}
           onConfirm={handleConfirmBulkDelete}
         />
+        <NotificationModal open={openNotifications} onOpenChange={setOpenNotifications} />
       </SidebarProvider>
     </LoadingOverlay>
   )
@@ -631,4 +637,14 @@ export default function DashboardPage() {
       </Suspense>
     </ToastProvider>
   )
+}
+
+type SearchParamsProviderProps = {
+  children: (platformFilter: string | null) => React.ReactNode
+}
+
+function SearchParamsProvider({ children }: SearchParamsProviderProps) {
+  const searchParams = useSearchParams()
+  const platformFilter = searchParams.get("platform")
+  return <>{children(platformFilter)}</>
 }

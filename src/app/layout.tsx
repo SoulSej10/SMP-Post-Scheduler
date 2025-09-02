@@ -1,7 +1,6 @@
 import type React from "react"
 import "./globals.css"
 import { Rubik, Rubik_Bubbles } from "next/font/google"
-import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
 const rubik = Rubik({

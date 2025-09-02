@@ -1,9 +1,12 @@
-import type { Post, User, Company } from "./types"
+import type { Post, User, Company, Notification, CompanyMember, ShareLink, SharePrivilege, Platform } from "./types"
 
 const USERS_KEY = "smp:users"
 const SESSION_KEY = "smp:session"
 const SETTINGS_KEY = "smp:settings"
 const COMPANIES_KEY = "smp:companies"
+const NOTIFICATIONS_KEY = "smp:notifications"
+const COMPANY_MEMBERS_KEY = "smp:company-members"
+const SHARE_LINKS_KEY = "smp:share-links"
 
 type Settings = {
   n8nWebhookUrl?: string
@@ -31,13 +34,7 @@ export function registerLocal({ email, password, name }: { email: string; passwo
     passwordHash: btoa(password), // mock only
     onboardingCompleted: false, // New users need onboarding
     companies: [], // Initialize companies array
-    currentCompanyId: null,
-    bio: "",
-    preferences: {
-      emailNotifications: false,
-      pushNotifications: false,
-      weeklyReports: false
-    }
+    currentCompanyId: null, // Initialize current company ID
   }
   localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]))
   localStorage.setItem(
@@ -136,8 +133,16 @@ export function updatePost(userId: string, updatedPost: Post) {
   const posts = getPostsForUser(userId)
   const index = posts.findIndex((p) => p.id === updatedPost.id)
   if (index !== -1) {
+    const oldPost = posts[index]
     posts[index] = updatedPost
     savePosts(userId, posts)
+
+    // Create notification for post update
+    createNotification("info", "Post Updated", `Your ${updatedPost.platform} post has been updated successfully.`, {
+      postId: updatedPost.id,
+      platform: updatedPost.platform,
+    })
+
     return true
   }
   return false
@@ -145,8 +150,18 @@ export function updatePost(userId: string, updatedPost: Post) {
 
 export function deletePost(userId: string, postId: string) {
   const posts = getPostsForUser(userId)
+  const postToDelete = posts.find((p) => p.id === postId)
   const filtered = posts.filter((p) => p.id !== postId)
   savePosts(userId, filtered)
+
+  if (filtered.length < posts.length && postToDelete) {
+    // Create notification for post deletion
+    createNotification("warning", "Post Deleted", `Your ${postToDelete.platform} post has been deleted.`, {
+      postId,
+      platform: postToDelete.platform,
+    })
+  }
+
   return filtered.length < posts.length
 }
 
@@ -154,6 +169,14 @@ export function deletePosts(userId: string, postIds: string[]) {
   const posts = getPostsForUser(userId)
   const filtered = posts.filter((p) => !postIds.includes(p.id))
   savePosts(userId, filtered)
+
+  if (filtered.length < posts.length) {
+    // Create notification for bulk deletion
+    createNotification("warning", "Posts Deleted", `Successfully deleted ${postIds.length} posts.`, {
+      deletedCount: postIds.length,
+    })
+  }
+
   return filtered.length < posts.length
 }
 
@@ -265,6 +288,7 @@ export function switchUserCompany(userId: string, companyId: string): boolean {
     const hasAccess = userCompanies.some((c) => c.id === companyId)
 
     if (hasAccess) {
+      const company = getCompanyById(companyId)
       users[userIndex].currentCompanyId = companyId
       localStorage.setItem(USERS_KEY, JSON.stringify(users))
 
@@ -279,6 +303,15 @@ export function switchUserCompany(userId: string, companyId: string): boolean {
           }),
         )
       }
+
+      // Create notification for company switch
+      if (company) {
+        createNotification("info", "Company Switched", `Successfully switched to ${company.name}.`, {
+          companyId,
+          companyName: company.name,
+        })
+      }
+
       return true
     }
   }
@@ -358,4 +391,274 @@ export function getSuccessRateData(userId: string, companyId?: string, days = 30
   }
 
   return data
+}
+
+export function getNotifications(): Notification[] {
+  try {
+    const user = getSessionUser()
+    if (!user) return []
+
+    const raw = localStorage.getItem(`${NOTIFICATIONS_KEY}:${user.id}`)
+    const notifications = raw ? (JSON.parse(raw) as Notification[]) : []
+
+    // Sort by creation date, newest first
+    return notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  } catch {
+    return []
+  }
+}
+
+export function saveNotifications(userId: string, notifications: Notification[]) {
+  localStorage.setItem(`${NOTIFICATIONS_KEY}:${userId}`, JSON.stringify(notifications))
+}
+
+export function createNotification(
+  type: Notification["type"],
+  title: string,
+  message?: string,
+  data?: any,
+): Notification {
+  const user = getSessionUser()
+  if (!user) throw new Error("No user session found")
+
+  const notification: Notification = {
+    id: cryptoRandomId(),
+    userId: user.id,
+    companyId: user.currentCompanyId,
+    type,
+    title,
+    message,
+    read: false,
+    createdAt: new Date().toISOString(),
+    data,
+  }
+
+  const notifications = getNotifications()
+  notifications.unshift(notification) // Add to beginning
+
+  // Keep only last 50 notifications to prevent storage bloat
+  const trimmedNotifications = notifications.slice(0, 50)
+  saveNotifications(user.id, trimmedNotifications)
+
+  return notification
+}
+
+export function markNotificationAsRead(notificationId: string): boolean {
+  const user = getSessionUser()
+  if (!user) return false
+
+  const notifications = getNotifications()
+  const notificationIndex = notifications.findIndex((n) => n.id === notificationId)
+
+  if (notificationIndex !== -1) {
+    notifications[notificationIndex].read = true
+    saveNotifications(user.id, notifications)
+    return true
+  }
+
+  return false
+}
+
+export function markAllNotificationsAsRead(): boolean {
+  const user = getSessionUser()
+  if (!user) return false
+
+  const notifications = getNotifications()
+  const updatedNotifications = notifications.map((n) => ({ ...n, read: true }))
+  saveNotifications(user.id, updatedNotifications)
+
+  return true
+}
+
+export function deleteNotification(notificationId: string): boolean {
+  const user = getSessionUser()
+  if (!user) return false
+
+  const notifications = getNotifications()
+  const filteredNotifications = notifications.filter((n) => n.id !== notificationId)
+  saveNotifications(user.id, filteredNotifications)
+
+  return filteredNotifications.length < notifications.length
+}
+
+export function getUnreadNotificationCount(): number {
+  const notifications = getNotifications()
+  return notifications.filter((n) => !n.read).length
+}
+
+export function getCompanyMembers(companyId: string): CompanyMember[] {
+  try {
+    const raw = localStorage.getItem(`${COMPANY_MEMBERS_KEY}:${companyId}`)
+    return raw ? (JSON.parse(raw) as CompanyMember[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveCompanyMembers(companyId: string, members: CompanyMember[]) {
+  localStorage.setItem(`${COMPANY_MEMBERS_KEY}:${companyId}`, JSON.stringify(members))
+}
+
+export function addCompanyMember(
+  companyId: string,
+  email: string,
+  name: string,
+  role: CompanyMember["role"] = "member",
+): CompanyMember {
+  const members = getCompanyMembers(companyId)
+  const newMember: CompanyMember = {
+    id: cryptoRandomId(),
+    companyId,
+    email,
+    name,
+    role,
+    invitedAt: new Date().toISOString(),
+    status: "pending",
+  }
+
+  members.push(newMember)
+  saveCompanyMembers(companyId, members)
+
+  // Create notification for member invitation
+  createNotification("member", "Member Invited", `${name} (${email}) has been invited to join the company.`, {
+    memberId: newMember.id,
+    email,
+    name,
+    role,
+  })
+
+  return newMember
+}
+
+export function removeCompanyMember(companyId: string, memberId: string): boolean {
+  const members = getCompanyMembers(companyId)
+  const filteredMembers = members.filter((m) => m.id !== memberId)
+  saveCompanyMembers(companyId, filteredMembers)
+
+  // Create notification for member removal
+  const removedMember = members.find((m) => m.id === memberId)
+  if (removedMember) {
+    createNotification("member", "Member Removed", `${removedMember.name} has been removed from the company.`, {
+      memberId,
+      email: removedMember.email,
+      name: removedMember.name,
+    })
+  }
+
+  return filteredMembers.length < members.length
+}
+
+export function updateCompanyMember(companyId: string, memberId: string, updates: Partial<CompanyMember>): boolean {
+  const members = getCompanyMembers(companyId)
+  const memberIndex = members.findIndex((m) => m.id === memberId)
+
+  if (memberIndex !== -1) {
+    members[memberIndex] = { ...members[memberIndex], ...updates }
+    saveCompanyMembers(companyId, members)
+
+    // Create notification for role update
+    if (updates.role) {
+      createNotification(
+        "member",
+        "Member Role Updated",
+        `${members[memberIndex].name}'s role has been updated to ${updates.role}.`,
+        {
+          memberId,
+          email: members[memberIndex].email,
+          name: members[memberIndex].name,
+          newRole: updates.role,
+        },
+      )
+    }
+
+    return true
+  }
+
+  return false
+}
+
+export function getShareLinks(): ShareLink[] {
+  try {
+    const user = getSessionUser()
+    if (!user) return []
+
+    const raw = localStorage.getItem(`${SHARE_LINKS_KEY}:${user.id}`)
+    return raw ? (JSON.parse(raw) as ShareLink[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveShareLinks(userId: string, shareLinks: ShareLink[]) {
+  localStorage.setItem(`${SHARE_LINKS_KEY}:${userId}`, JSON.stringify(shareLinks))
+}
+
+export function createShareLink(data: {
+  userId: string
+  companyId: string
+  month: number
+  year: number
+  platform?: Platform
+  privileges: SharePrivilege[]
+  recipientEmail?: string
+  recipientName?: string
+  expiresAt?: string
+}): ShareLink {
+  const shareLink: ShareLink = {
+    id: cryptoRandomId(),
+    ...data,
+    createdAt: new Date().toISOString(),
+    accessCount: 0,
+  }
+
+  const shareLinks = getShareLinks()
+  shareLinks.push(shareLink)
+  saveShareLinks(data.userId, shareLinks)
+
+  return shareLink
+}
+
+export function getShareLinkById(shareId: string): ShareLink | null {
+  const users = getUsers()
+
+  for (const user of users) {
+    try {
+      const raw = localStorage.getItem(`${SHARE_LINKS_KEY}:${user.id}`)
+      if (raw) {
+        const shareLinks = JSON.parse(raw) as ShareLink[]
+        const shareLink = shareLinks.find((link) => link.id === shareId)
+        if (shareLink) {
+          return shareLink
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return null
+}
+
+export function incrementShareLinkAccess(shareId: string): boolean {
+  const users = getUsers()
+
+  for (const user of users) {
+    try {
+      const raw = localStorage.getItem(`${SHARE_LINKS_KEY}:${user.id}`)
+      if (raw) {
+        const shareLinks = JSON.parse(raw) as ShareLink[]
+        const linkIndex = shareLinks.findIndex((link) => link.id === shareId)
+        if (linkIndex !== -1) {
+          shareLinks[linkIndex].accessCount += 1
+          shareLinks[linkIndex].lastAccessedAt = new Date().toISOString()
+          saveShareLinks(user.id, shareLinks)
+          return true
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return false
 }
