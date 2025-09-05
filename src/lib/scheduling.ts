@@ -1,8 +1,6 @@
 import type { Platform, Post } from "./types"
 
 export function getPlatformScheduleDays(): Record<Platform, string[]> {
-  // This would normally come from user settings/database
-  // For now, return default preferences that can be overridden
   return {
     facebook: ["monday", "wednesday", "friday"],
     instagram: ["tuesday", "thursday", "saturday"],
@@ -45,7 +43,6 @@ export function createPostsForSchedule(args: {
     // Use different content for each post (cycle through variants)
     let content = variants[i % variants.length]
 
-    // Only add link to content if provided
     if (link && link.trim()) {
       content = `${content}\n\n🔗 ${link}`
     }
@@ -138,7 +135,7 @@ function generateDatesForPlatform(start: Date, end: Date, count: number, allowed
     const selectedDate = new Date(validDates[index])
 
     // Randomize the hour between 9 AM and 6 PM
-    const randomHour = 9 + Math.floor(Math.random() * 10) // 9-18 (6 PM)
+    const randomHour = 9 + Math.floor(Math.random() * 10) 
     const randomMinute = Math.floor(Math.random() * 60)
 
     selectedDate.setHours(randomHour, randomMinute, 0, 0)
@@ -163,7 +160,7 @@ function generateRandomDates(startDate: string, endDate: string, count: number):
     const newDate = new Date(start.getTime() + randomMs)
 
     // Randomize the hour between 9 AM and 6 PM
-    const randomHour = 9 + Math.floor(Math.random() * 10) // 9-18 (6 PM)
+    const randomHour = 9 + Math.floor(Math.random() * 10) 
     const randomMinute = Math.floor(Math.random() * 60)
 
     newDate.setHours(randomHour, randomMinute, 0, 0)
@@ -197,7 +194,6 @@ export function normalizeContent(s: string) {
 }
 
 export function hashContent(s: string) {
-  // simple djb2
   const str = normalizeContent(s)
   let h = 5381
   for (let i = 0; i < str.length; i++) {

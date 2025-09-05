@@ -107,7 +107,7 @@ export default function OnboardingPage() {
       case 2:
         return formData.company.trim()
       case 3:
-        return true // Optional step
+        return true
       default:
         return false
     }

@@ -195,12 +195,6 @@ export default function LoginPage() {
                     <span className="text-xs">Secure credential storage and automated posting</span>
                   </div>
                 </div>
-                {/* {getUsers().length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-blue-200">
-                    <p className="text-xs font-medium text-blue-800">Demo Account Available:</p>
-                    <p className="text-xs text-blue-700">demo@example.com / demo1234</p>
-                  </div>
-                )} */}
               </div>
             </div>
           </form>

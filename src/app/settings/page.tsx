@@ -81,23 +81,6 @@ export default function SettingsPage() {
               <CardTitle>Automation & Integrations</CardTitle>
               <CardDescription>Configure external services and automation workflows.</CardDescription>
             </CardHeader>
-            {/* <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="webhook">n8n Webhook URL</Label>
-                <Input
-                  id="webhook"
-                  placeholder="https://n8n.your-domain.com/webhook/your-token"
-                  value={webhook}
-                  onChange={(e) => setWebhook(e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Connect to n8n for advanced automation workflows and custom integrations.
-                </p>
-              </div>
-              <Button onClick={onSave} disabled={saving}>
-                {saving ? "Saving..." : "Save Integration Settings"}
-              </Button>
-            </CardContent> */}
           </Card>
         </main>
       </SidebarInset>

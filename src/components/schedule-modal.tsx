@@ -706,7 +706,6 @@ function estimateTotalPosts(start: string, end: string, freqPerWeek: number, pla
   const e = new Date(end).getTime()
   const days = Math.max(1, Math.ceil((e - s) / msPerDay) + 1)
 
-  // Calculate posts based on actual days, not rounded weeks
   const postsPerDay = (freqPerWeek * platformCount) / 7
   return Math.round(days * postsPerDay)
 }
@@ -724,7 +723,6 @@ async function generateTextVariants(prompt: string, count: number): Promise<stri
   const data = (await res.json()) as { variants: string[] }
   const variants = data?.variants ?? []
   if (variants.length >= count) return variants.slice(0, count)
-  // pad if needed
   return [...variants, ...Array.from({ length: count - variants.length }, (_, i) => `${prompt} (v${i + 1})`)]
 }
 

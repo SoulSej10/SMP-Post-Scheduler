@@ -73,8 +73,6 @@ function SharedMonthlyOverview() {
   const platform = (searchParams.get("platform") as Platform) || "facebook"
 
   useEffect(() => {
-    // In a real implementation, this would fetch shared posts from an API
-    // For now, we'll simulate with sample data
     const samplePosts: Post[] = [
       {
         id: "1",
@@ -111,7 +109,6 @@ function SharedMonthlyOverview() {
   const handleUpdateField = (postId: string, field: string, value: any) => {
     setPosts((prev) => prev.map((post) => (post.id === postId ? { ...post, [field]: value } : post)))
 
-    // In a real implementation, this would sync changes back to the main application
     console.log(`Updated post ${postId}: ${field} = ${value}`)
   }
 
