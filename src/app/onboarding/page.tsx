@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { User, Building2, Upload, ArrowRight, ArrowLeft, CheckCircle, PenTool } from "lucide-react"
-import { getSessionUser, updateUserProfile, completeOnboarding, createCompany } from "@/lib/storage"
+import { getSessionUser, updateUserProfile, createCompany } from "@/lib/storage"
 
 type OnboardingData = {
   name: string
@@ -35,22 +35,24 @@ export default function OnboardingPage() {
   })
 
   useEffect(() => {
-    const sessionUser = getSessionUser()
-    if (!sessionUser) {
-      router.push("/login")
-      return
-    }
+    ;(async () => {
+      const sessionUser = await getSessionUser()
+      if (!sessionUser) {
+        router.push("/login")
+        return
+      }
 
-    if (sessionUser.onboardingCompleted) {
-      router.push("/")
-      return
-    }
+      if (sessionUser.onboardingCompleted) {
+        router.push("/")
+        return
+      }
 
-    setUser(sessionUser)
-    setFormData((prev) => ({
-      ...prev,
-      name: sessionUser.name || "",
-    }))
+      setUser(sessionUser)
+      setFormData((prev) => ({
+        ...prev,
+        name: sessionUser.name || "",
+      }))
+    })()
   }, [router])
 
   const totalSteps = 3
@@ -64,14 +66,16 @@ export default function OnboardingPage() {
       setIsLoading(true)
 
       if (user) {
-        const company = createCompany(formData.company, "", user.id)
+        const company = await createCompany(formData.company, "", user.id, formData.companyLogo)
 
         await updateUserProfile(user.id, {
-          ...formData,
+          name: formData.name,
+          phone: formData.phone,
+          role: formData.role,
+          profilePicture: formData.profilePicture,
           onboardingCompleted: true,
-          currentCompanyId: company.id,
+          currentCompanyId: company?.id ?? null,
         })
-        await completeOnboarding(user.id)
       }
 
       router.push("/")
@@ -118,7 +122,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl shadow-lg">
         <CardHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
@@ -127,7 +131,7 @@ export default function OnboardingPage() {
             </div>
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Welcome to Pen Master!</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to Gazetta!</CardTitle>
             <CardDescription className="text-base mt-2">
               Let's set up your profile to get started with social media scheduling
             </CardDescription>

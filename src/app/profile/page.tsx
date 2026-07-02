@@ -64,38 +64,40 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    const sessionUser = getSessionUser()
-    if (!sessionUser) {
-      router.push("/login")
-      return
-    }
+    ;(async () => {
+      const sessionUser = await getSessionUser()
+      if (!sessionUser) {
+        router.push("/login")
+        return
+      }
 
-    setUser(sessionUser)
+      setUser(sessionUser)
 
-    // Load full user profile
-    const fullProfile = getUserProfile(sessionUser.id)
-    if (fullProfile) {
-      setFormData({
-        name: fullProfile.name || "",
-        email: fullProfile.email || "",
-        phone: fullProfile.phone || "",
-        role: fullProfile.role || "",
-        bio: fullProfile.bio || "",
-        profilePicture: fullProfile.profilePicture || "",
-        preferences: fullProfile.preferences || {
-          emailNotifications: true,
-          pushNotifications: true,
-          weeklyReports: false,
-        },
+      // Load full user profile
+      const fullProfile = await getUserProfile(sessionUser.id)
+      if (fullProfile) {
+        setFormData({
+          name: fullProfile.name || "",
+          email: fullProfile.email || "",
+          phone: fullProfile.phone || "",
+          role: fullProfile.role || "",
+          bio: fullProfile.bio || "",
+          profilePicture: fullProfile.profilePicture || "",
+          preferences: fullProfile.preferences || {
+            emailNotifications: true,
+            pushNotifications: true,
+            weeklyReports: false,
+          },
+        })
+      }
+
+      const userPosts = await getPostsForUser(sessionUser.id, sessionUser.currentCompanyId)
+      setStats({
+        totalPosts: userPosts.length,
+        scheduledPosts: userPosts.filter((p) => p.status === "scheduled").length,
+        postedPosts: userPosts.filter((p) => p.status === "posted").length,
       })
-    }
-
-    const userPosts = getPostsForUser(sessionUser.id, sessionUser.currentCompanyId)
-    setStats({
-      totalPosts: userPosts.length,
-      scheduledPosts: userPosts.filter((p) => p.status === "scheduled").length,
-      postedPosts: userPosts.filter((p) => p.status === "posted").length,
-    })
+    })()
   }, [router])
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -132,7 +134,7 @@ export default function ProfilePage() {
     setSaveMessage(null)
 
     try {
-      const success = updateUserProfile(user.id, formData)
+      const success = await updateUserProfile(user.id, formData)
 
       if (success) {
         setSaveMessage({ type: "success", text: "Profile updated successfully!" })
@@ -148,8 +150,8 @@ export default function ProfilePage() {
     }
   }
 
-  const handleLogout = () => {
-    logoutLocal()
+  const handleLogout = async () => {
+    await logoutLocal()
     router.push("/login")
   }
 
@@ -302,11 +304,11 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <Calendar className="h-8 w-8 text-blue-600" />
+                    <div className="flex items-center gap-3 p-4 bg-muted rounded-lg border border-border">
+                      <Calendar className="h-8 w-8 text-foreground/70" />
                       <div>
-                        <p className="text-2xl font-bold text-blue-900">{stats.totalPosts}</p>
-                        <p className="text-sm text-blue-700">Total Posts</p>
+                        <p className="text-2xl font-bold">{stats.totalPosts}</p>
+                        <p className="text-sm text-muted-foreground">Total Posts</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">

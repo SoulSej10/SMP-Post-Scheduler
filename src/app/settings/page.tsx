@@ -1,40 +1,50 @@
 "use client"
 import { Suspense } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { getSessionUser, getSettings, saveSettings } from "@/lib/storage"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { getSessionUser } from "@/lib/storage"
 import { useEffect, useState } from "react"
+import { CheckCircle, AlertCircle } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import SocialAccountBinding from "@/components/social-account-binding"
 import CompanyManagementCard from "@/components/company-management-card"
+
+function ConnectionBanner() {
+  const searchParams = useSearchParams()
+  const connected = searchParams.get("connected")
+  const connectError = searchParams.get("connectError")
+
+  if (!connected && !connectError) return null
+
+  if (connectError) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg border bg-red-50 border-red-200 text-red-700 text-sm">
+        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+        {connectError}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-50 border-green-200 text-green-700 text-sm">
+      <CheckCircle className="h-4 w-4 flex-shrink-0" />
+      Connected: {connected}
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const user = getSessionUser()
-    if (!user) router.push("/login")
+    getSessionUser().then((user) => {
+      if (!user) router.push("/login")
+    })
   }, [router])
-
-  const [webhook, setWebhook] = useState("")
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const s = getSettings()
-    if (s?.n8nWebhookUrl) setWebhook(s.n8nWebhookUrl)
-  }, [])
-
-  const onSave = () => {
-    setSaving(true)
-    saveSettings({ n8nWebhookUrl: webhook })
-    setTimeout(() => setSaving(false), 400)
-  }
 
   return (
     <SidebarProvider>
@@ -47,6 +57,10 @@ export default function SettingsPage() {
           <h1 className="text-base font-medium">Settings</h1>
         </div>
         <main className="container mx-auto p-4 space-y-6">
+          <Suspense fallback={null}>
+            <ConnectionBanner />
+          </Suspense>
+
           {/* Appearance Settings */}
           <Card>
             <CardHeader>
@@ -72,16 +86,6 @@ export default function SettingsPage() {
 
           {/* Social Media Account Binding */}
           <SocialAccountBinding />
-
-          <Separator />
-
-          {/* Integrations */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Automation & Integrations</CardTitle>
-              <CardDescription>Configure external services and automation workflows.</CardDescription>
-            </CardHeader>
-          </Card>
         </main>
       </SidebarInset>
     </SidebarProvider>

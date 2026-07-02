@@ -31,6 +31,8 @@ import {
   getSessionUser,
   getUserCompanies,
   switchUserCompany,
+  updateCompany,
+  deleteCompany,
   getCompanyMembers,
   addCompanyMember,
   removeCompanyMember,
@@ -42,6 +44,7 @@ import CreateCompanyModal from "@/components/create-company-modal"
 export default function CompanyManagementCard() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [deletingCompany, setDeletingCompany] = useState<Company | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -60,17 +63,18 @@ export default function CompanyManagementCard() {
     loadCompanies()
   }, [])
 
-  const loadCompanies = () => {
-    const user = getSessionUser()
+  const loadCompanies = async () => {
+    const user = await getSessionUser()
     if (!user) return
 
-    const userCompanies = getUserCompanies(user.id)
+    setCurrentUserId(user.id)
+    const userCompanies = await getUserCompanies(user.id)
     setCompanies(userCompanies)
     setCurrentCompanyId(user.currentCompanyId || null)
   }
 
-  const loadCompanyMembers = (companyId: string) => {
-    const members = getCompanyMembers(companyId)
+  const loadCompanyMembers = async (companyId: string) => {
+    const members = await getCompanyMembers(companyId)
     setCompanyMembers(members)
   }
 
@@ -80,53 +84,54 @@ export default function CompanyManagementCard() {
     setEditDescription(company.description || "")
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingCompany || !editName.trim()) return
 
     setLoading(true)
 
-    setTimeout(() => {
-      const updatedCompany = {
-        ...editingCompany,
-        name: editName.trim(),
-        description: editDescription.trim(),
-      }
+    const success = await updateCompany(editingCompany.id, {
+      name: editName.trim(),
+      description: editDescription.trim(),
+    })
 
-      setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? updatedCompany : c)))
+    if (success) {
+      await loadCompanies()
+    }
 
-      setEditingCompany(null)
-      setEditName("")
-      setEditDescription("")
-      setLoading(false)
-    }, 500)
+    setEditingCompany(null)
+    setEditName("")
+    setEditDescription("")
+    setLoading(false)
   }
 
   const handleDeleteCompany = (company: Company) => {
     setDeletingCompany(company)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingCompany) return
 
     setLoading(true)
 
-    setTimeout(() => {
-      setCompanies((prev) => prev.filter((c) => c.id !== deletingCompany.id))
-
-      if (deletingCompany.id === currentCompanyId && companies.length > 1) {
-        const remainingCompanies = companies.filter((c) => c.id !== deletingCompany.id)
-        if (remainingCompanies.length > 0) {
-          const user = getSessionUser()
-          if (user) {
-            switchUserCompany(user.id, remainingCompanies[0].id)
-            setCurrentCompanyId(remainingCompanies[0].id)
-          }
-        }
-      }
-
-      setDeletingCompany(null)
+    const success = await deleteCompany(deletingCompany.id)
+    if (!success) {
       setLoading(false)
-    }, 500)
+      setDeletingCompany(null)
+      return
+    }
+
+    setCompanies((prev) => prev.filter((c) => c.id !== deletingCompany.id))
+
+    if (deletingCompany.id === currentCompanyId && companies.length > 1) {
+      const remainingCompanies = companies.filter((c) => c.id !== deletingCompany.id)
+      if (remainingCompanies.length > 0 && currentUserId) {
+        await switchUserCompany(currentUserId, remainingCompanies[0].id)
+        setCurrentCompanyId(remainingCompanies[0].id)
+      }
+    }
+
+    setDeletingCompany(null)
+    setLoading(false)
   }
 
   const handleCompanyCreated = (companyId: string) => {
@@ -134,17 +139,14 @@ export default function CompanyManagementCard() {
     setShowCreateModal(false)
   }
 
-  const handleSwitchCompany = (companyId: string) => {
-    const user = getSessionUser()
+  const handleSwitchCompany = async (companyId: string) => {
+    const user = await getSessionUser()
     if (!user) return
 
     setLoading(true)
-
-    setTimeout(() => {
-      switchUserCompany(user.id, companyId)
-      setCurrentCompanyId(companyId)
-      setLoading(false)
-    }, 300)
+    await switchUserCompany(user.id, companyId)
+    setCurrentCompanyId(companyId)
+    setLoading(false)
   }
 
   const handleManageMembers = (company: Company) => {
@@ -153,44 +155,35 @@ export default function CompanyManagementCard() {
     setShowMembersModal(true)
   }
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (!selectedCompany || !newMemberEmail.trim() || !newMemberName.trim()) return
 
     setLoading(true)
-
-    setTimeout(() => {
-      addCompanyMember(selectedCompany.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole)
-      loadCompanyMembers(selectedCompany.id)
-      setNewMemberEmail("")
-      setNewMemberName("")
-      setNewMemberRole("member")
-      setShowAddMemberModal(false)
-      setLoading(false)
-    }, 500)
+    await addCompanyMember(selectedCompany.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole)
+    await loadCompanyMembers(selectedCompany.id)
+    setNewMemberEmail("")
+    setNewMemberName("")
+    setNewMemberRole("member")
+    setShowAddMemberModal(false)
+    setLoading(false)
   }
 
-  const handleRemoveMember = (memberId: string) => {
+  const handleRemoveMember = async (memberId: string) => {
     if (!selectedCompany) return
 
     setLoading(true)
-
-    setTimeout(() => {
-      removeCompanyMember(selectedCompany.id, memberId)
-      loadCompanyMembers(selectedCompany.id)
-      setLoading(false)
-    }, 300)
+    await removeCompanyMember(selectedCompany.id, memberId)
+    await loadCompanyMembers(selectedCompany.id)
+    setLoading(false)
   }
 
-  const handleUpdateMemberRole = (memberId: string, newRole: CompanyMember["role"]) => {
+  const handleUpdateMemberRole = async (memberId: string, newRole: CompanyMember["role"]) => {
     if (!selectedCompany) return
 
     setLoading(true)
-
-    setTimeout(() => {
-      updateCompanyMember(selectedCompany.id, memberId, { role: newRole })
-      loadCompanyMembers(selectedCompany.id)
-      setLoading(false)
-    }, 300)
+    await updateCompanyMember(selectedCompany.id, memberId, { role: newRole })
+    await loadCompanyMembers(selectedCompany.id)
+    setLoading(false)
   }
 
   const getRoleIcon = (role: CompanyMember["role"]) => {
@@ -265,7 +258,7 @@ export default function CompanyManagementCard() {
                           Current
                         </Badge>
                       )}
-                      {company.ownerId === getSessionUser()?.id && (
+                      {company.ownerId === currentUserId && (
                         <Badge variant="secondary" className="text-xs">
                           Owner
                         </Badge>
@@ -292,7 +285,7 @@ export default function CompanyManagementCard() {
                       Switch
                     </Button>
                   )}
-                  {company.ownerId === getSessionUser()?.id && (
+                  {company.ownerId === currentUserId && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -303,7 +296,7 @@ export default function CompanyManagementCard() {
                       <Users className="h-4 w-4" />
                     </Button>
                   )}
-                  {company.ownerId === getSessionUser()?.id && (
+                  {company.ownerId === currentUserId && (
                     <>
                       <Button variant="ghost" size="sm" onClick={() => handleEditCompany(company)} disabled={loading}>
                         <Edit className="h-4 w-4" />

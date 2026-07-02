@@ -32,8 +32,10 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const u = getSessionUser()
-    if (u) router.push("/")
+    ;(async () => {
+      const u = await getSessionUser()
+      if (u) router.push("/")
+    })()
   }, [router])
 
   const validateForm = () => {
@@ -88,10 +90,7 @@ export default function RegisterPage() {
     setIsLoading(true)
     setErrors({})
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const result = registerLocal({
+    const result = await registerLocal({
       email: formData.email,
       password: formData.password,
       name: formData.name,
@@ -118,10 +117,10 @@ export default function RegisterPage() {
 
   const passwordStrength = getPasswordStrength(formData.password)
   const strengthLabels = ["Very Weak", "Weak", "Fair", "Good", "Strong"]
-  const strengthColors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-blue-500", "bg-green-500"]
+  const strengthColors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-lime-500", "bg-green-500"]
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
@@ -130,7 +129,7 @@ export default function RegisterPage() {
             </div>
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Join Pen Master</CardTitle>
+            <CardTitle className="text-2xl font-bold">Join Gazetta</CardTitle>
             <CardDescription className="text-base mt-2">Create your account to start scheduling posts</CardDescription>
           </div>
         </CardHeader>

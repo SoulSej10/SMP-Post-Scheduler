@@ -19,6 +19,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
   const [open, setOpen] = useState(false)
   const [companies, setCompanies] = useState<Company[]>([])
   const [currentCompany, setCurrentCompany] = useState<Company | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [switching, setSwitching] = useState(false)
 
@@ -26,16 +27,17 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
     loadCompanies()
   }, [])
 
-  const loadCompanies = () => {
-    const user = getSessionUser()
+  const loadCompanies = async () => {
+    const user = await getSessionUser()
     if (!user) return
+    setCurrentUserId(user.id)
 
-    const userCompanies = getUserCompanies(user.id)
+    const userCompanies = await getUserCompanies(user.id)
     setCompanies(userCompanies)
 
     // Set current company
     if (user.currentCompanyId) {
-      const current = getCompanyById(user.currentCompanyId)
+      const current = await getCompanyById(user.currentCompanyId)
       setCurrentCompany(current)
     } else if (userCompanies.length > 0) {
       // Auto-select first company if none selected
@@ -46,24 +48,21 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
   }
 
   const handleCompanySwitch = async (companyId: string) => {
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (!user || switching) return
 
     setSwitching(true)
     setLoading(true)
 
-    // Simulate async operation with longer delay for data loading
-    setTimeout(() => {
-      const success = switchUserCompany(user.id, companyId)
-      if (success) {
-        const company = getCompanyById(companyId)
-        setCurrentCompany(company)
-        onCompanyChange?.(companyId)
-      }
-      setSwitching(false)
-      setLoading(false)
-      setOpen(false)
-    }, 800) // Increased delay to simulate real data loading
+    const success = await switchUserCompany(user.id, companyId)
+    if (success) {
+      const company = await getCompanyById(companyId)
+      setCurrentCompany(company)
+      onCompanyChange?.(companyId)
+    }
+    setSwitching(false)
+    setLoading(false)
+    setOpen(false)
   }
 
   if (companies.length === 0) {
@@ -97,7 +96,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
         >
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
-            {currentCompany ? <span className="truncate w-[auto - ] w-[auto - 1] w-[auto - 150px] w-auto">{currentCompany.name}</span> : "Select company..."}
+            {currentCompany ? <span className="truncate max-w-[150px]">{currentCompany.name}</span> : "Select company..."}
             {switching && <Loader2 className="h-3 w-3 animate-spin" />}
           </div>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-0" />
@@ -127,7 +126,7 @@ export default function CompanySelector({ onCompanyChange, className }: Props) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {company.ownerId === getSessionUser()?.id && (
+                    {company.ownerId === currentUserId && (
                       <Badge variant="secondary" className="text-xs">
                         Owner
                       </Badge>

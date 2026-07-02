@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PenTool, Eye, EyeOff, AlertCircle, Calendar, Zap, Shield } from "lucide-react"
-import { getSessionUser, loginLocal, getUsers } from "@/lib/storage"
+import { getSessionUser, loginLocal } from "@/lib/storage"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,14 +21,16 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const u = getSessionUser()
-    if (u) {
-      if (u.onboardingCompleted) {
-        router.push("/")
-      } else {
-        router.push("/onboarding")
+    ;(async () => {
+      const u = await getSessionUser()
+      if (u) {
+        if (u.onboardingCompleted) {
+          router.push("/")
+        } else {
+          router.push("/onboarding")
+        }
       }
-    }
+    })()
   }, [router])
 
   const validateForm = () => {
@@ -60,17 +62,14 @@ export default function LoginPage() {
     setIsLoading(true)
     setErrors({})
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const ok = loginLocal(email, password)
+    const ok = await loginLocal(email, password)
     if (!ok) {
       setErrors({ general: "Invalid email or password. Please check your credentials and try again." })
       setIsLoading(false)
       return
     }
 
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (user?.onboardingCompleted) {
       router.push("/")
     } else {
@@ -79,7 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
@@ -88,7 +87,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Welcome to Pen Master</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to Gazetta</CardTitle>
             <CardDescription className="text-base mt-2">Sign in to your social media scheduler</CardDescription>
           </div>
         </CardHeader>
@@ -175,23 +174,23 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
               <div className="text-sm">
-                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
                   <Zap className="h-4 w-4" />
-                  Why Choose Pen Master?
+                  Why Choose Gazetta?
                 </h3>
-                <div className="space-y-2 text-blue-700">
+                <div className="space-y-2 text-green-700">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-3 w-3 text-blue-600" />
+                    <Calendar className="h-3 w-3 text-green-600" />
                     <span className="text-xs">Smart scheduling across Facebook, Instagram & LinkedIn</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Zap className="h-3 w-3 text-blue-600" />
+                    <Zap className="h-3 w-3 text-green-600" />
                     <span className="text-xs">AI-powered content generation with Gemini AI</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Shield className="h-3 w-3 text-blue-600" />
+                    <Shield className="h-3 w-3 text-green-600" />
                     <span className="text-xs">Secure credential storage and automated posting</span>
                   </div>
                 </div>

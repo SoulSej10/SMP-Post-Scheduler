@@ -31,7 +31,6 @@ import {
   deletePost,
   deletePosts,
   getPostsForUser,
-  updatePostStatusBasedOnDate,
   getHistoricalPostData,
   getSuccessRateData,
   getUnreadNotificationCount,
@@ -65,35 +64,36 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const isDashboardView = !platformFilter
 
   useEffect(() => {
-    const user = getSessionUser()
-    if (!user) {
-      router.push("/login")
-      return
-    }
+    ;(async () => {
+      const user = await getSessionUser()
+      if (!user) {
+        router.push("/login")
+        return
+      }
 
-    // Check if user needs to complete onboarding
-    if (!user.onboardingCompleted) {
-      router.push("/onboarding")
-      return
-    }
+      // Check if user needs to complete onboarding
+      if (!user.onboardingCompleted) {
+        router.push("/onboarding")
+        return
+      }
 
-    updatePostStatusBasedOnDate()
-    setUnreadCount(getUnreadNotificationCount())
+      setUnreadCount(await getUnreadNotificationCount())
+    })()
   }, [router])
 
   useEffect(() => {
     if (!openNotifications) {
-      setUnreadCount(getUnreadNotificationCount())
+      getUnreadNotificationCount().then(setUnreadCount)
     }
   }, [openNotifications])
 
   const [posts, setPosts] = useState<Post[]>([])
 
-  const loadPosts = () => {
-    const user = getSessionUser()
+  const loadPosts = async () => {
+    const user = await getSessionUser()
     if (!user) return
 
-    const companyPosts = getPostsForUser(user.id, user.currentCompanyId)
+    const companyPosts = await getPostsForUser(user.id, user.currentCompanyId)
     setPosts(companyPosts)
   }
 
@@ -101,19 +101,16 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
     loadPosts()
   }, [])
 
-  const handleCompanyChange = (companyId: string) => {
+  const handleCompanyChange = async (companyId: string) => {
     setCompanySwitchLoading(true)
+    await loadPosts()
+    setCompanySwitchLoading(false)
 
-    setTimeout(() => {
-      loadPosts()
-      setCompanySwitchLoading(false)
-
-      showToast({
-        type: "success",
-        title: "Company Switched",
-        message: "Successfully switched to the selected company.",
-      })
-    }, 500)
+    showToast({
+      type: "success",
+      title: "Company Switched",
+      message: "Successfully switched to the selected company.",
+    })
   }
 
   useEffect(() => {
@@ -134,13 +131,10 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   const currentMonth = new Date().getMonth()
 
   const chartData = useMemo(() => {
-    const user = getSessionUser()
-    if (!user) return { thisMonth: [], next7Days: [], successRate: [] }
-
     return {
-      thisMonth: getHistoricalPostData(user.id, user.currentCompanyId, 30),
-      next7Days: getHistoricalPostData(user.id, user.currentCompanyId, 7),
-      successRate: getSuccessRateData(user.id, user.currentCompanyId, 30),
+      thisMonth: getHistoricalPostData(posts, 30),
+      next7Days: getHistoricalPostData(posts, 7),
+      successRate: getSuccessRateData(posts, 30),
     }
   }, [posts])
 
@@ -247,23 +241,20 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   }
 
   const handleSavePost = async (updatedPost: Post) => {
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (!user) return
 
     setLoading(true)
+    await updatePost(user.id, updatedPost)
+    await loadPosts()
+    setEditingPost(null)
+    setLoading(false)
 
-    setTimeout(() => {
-      updatePost(user.id, updatedPost)
-      loadPosts()
-      setEditingPost(null)
-      setLoading(false)
-
-      showToast({
-        type: "success",
-        title: "Post Updated",
-        message: "Your post has been successfully updated.",
-      })
-    }, 500)
+    showToast({
+      type: "success",
+      title: "Post Updated",
+      message: "Your post has been successfully updated.",
+    })
   }
 
   const handleDeletePost = (post: Post) => {
@@ -280,58 +271,52 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
   }
 
   const handleConfirmDelete = async () => {
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (!user || !deletingPost) return
 
     setLoading(true)
+    await deletePost(user.id, deletingPost.id)
+    await loadPosts()
+    setDeletingPost(null)
+    setOpenDeleteConfirm(false)
+    setLoading(false)
 
-    setTimeout(() => {
-      deletePost(user.id, deletingPost.id)
-      loadPosts()
-      setDeletingPost(null)
-      setOpenDeleteConfirm(false)
-      setLoading(false)
-
-      showToast({
-        type: "success",
-        title: "Post Deleted",
-        message: "The post has been successfully deleted.",
-      })
-    }, 500)
+    showToast({
+      type: "success",
+      title: "Post Deleted",
+      message: "The post has been successfully deleted.",
+    })
   }
 
   const handleConfirmBulkDelete = async () => {
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (!user || bulkDeletePosts.length === 0) return
 
     setLoading(true)
+    const postIds = bulkDeletePosts.map((p) => p.id)
+    await deletePosts(user.id, postIds)
+    await loadPosts()
+    setBulkDeletePosts([])
+    setBulkDeleteDate(null)
+    setOpenBulkDelete(false)
+    setLoading(false)
 
-    setTimeout(() => {
-      const postIds = bulkDeletePosts.map((p) => p.id)
-      deletePosts(user.id, postIds)
-      loadPosts()
-      setBulkDeletePosts([])
-      setBulkDeleteDate(null)
-      setOpenBulkDelete(false)
-      setLoading(false)
-
-      showToast({
-        type: "success",
-        title: "Posts Deleted",
-        message: `Successfully deleted ${postIds.length} posts.`,
-      })
-    }, 800)
+    showToast({
+      type: "success",
+      title: "Posts Deleted",
+      message: `Successfully deleted ${postIds.length} posts.`,
+    })
   }
 
-  const handleUpdateMonthlyPost = (postId: string, updates: Partial<Post>) => {
-    const user = getSessionUser()
+  const handleUpdateMonthlyPost = async (postId: string, updates: Partial<Post>) => {
+    const user = await getSessionUser()
     if (!user) return
 
     const post = posts.find((p) => p.id === postId)
     if (post) {
       const updatedPost = { ...post, ...updates }
-      updatePost(user.id, updatedPost)
-      loadPosts()
+      await updatePost(user.id, updatedPost)
+      await loadPosts()
 
       showToast({
         type: "success",
@@ -598,6 +583,7 @@ function DashboardContent({ platformFilter }: DashboardContentProps) {
           onEdit={handleEditPost}
           onDelete={handleDeletePost}
           onBulkDelete={handleBulkDelete}
+          onPublished={loadPosts}
           title={viewTitle}
         />
         {editingPost && (

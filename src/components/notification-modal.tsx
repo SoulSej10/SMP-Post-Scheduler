@@ -36,36 +36,30 @@ export default function NotificationModal({ open, onOpenChange }: Props) {
     }
   }, [open])
 
-  const loadNotifications = () => {
-    const userNotifications = getNotifications()
+  const loadNotifications = async () => {
+    const userNotifications = await getNotifications()
     setNotifications(userNotifications)
   }
 
-  const handleMarkAsRead = (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     setLoading(true)
-    setTimeout(() => {
-      markNotificationAsRead(notificationId)
-      loadNotifications()
-      setLoading(false)
-    }, 200)
+    await markNotificationAsRead(notificationId)
+    await loadNotifications()
+    setLoading(false)
   }
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
     setLoading(true)
-    setTimeout(() => {
-      markAllNotificationsAsRead()
-      loadNotifications()
-      setLoading(false)
-    }, 300)
+    await markAllNotificationsAsRead()
+    await loadNotifications()
+    setLoading(false)
   }
 
-  const handleDeleteNotification = (notificationId: string) => {
+  const handleDeleteNotification = async (notificationId: string) => {
     setLoading(true)
-    setTimeout(() => {
-      deleteNotification(notificationId)
-      loadNotifications()
-      setLoading(false)
-    }, 200)
+    await deleteNotification(notificationId)
+    await loadNotifications()
+    setLoading(false)
   }
 
   const getNotificationIcon = (type: Notification["type"]) => {

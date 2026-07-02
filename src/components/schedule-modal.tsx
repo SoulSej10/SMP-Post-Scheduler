@@ -12,8 +12,8 @@ import { Separator } from "@/components/ui/separator"
 import { ProgressBar } from "./progress-bar"
 import { LoadingSpinner } from "./loading-spinner"
 import { useToast } from "./toast-notification"
-import { createPostsForSchedule, hashContent, normalizeContent } from "@/lib/scheduling"
-import { getSessionUser, savePosts, getPostsForUser } from "@/lib/storage"
+import { createPostsForSchedule, hashContent } from "@/lib/scheduling"
+import { getSessionUser, createPosts, getPostsForUser } from "@/lib/storage"
 import type { Platform, Post } from "@/lib/types"
 
 type Props = {
@@ -143,7 +143,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
     setProgress(0)
 
     try {
-      const user = getSessionUser()
+      const user = await getSessionUser()
       if (!user) {
         setError("You must be logged in.")
         setLoading(false)
@@ -190,7 +190,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       // Progress: 80% - Creating posts
       setProgress(80)
 
-      const existing = getPostsForUser(user.id, user.currentCompanyId)
+      const existing = await getPostsForUser(user.id, user.currentCompanyId)
       const seen = new Set(existing.map((p) => hashContent(p.content)))
       const uniqueVariants: string[] = []
       for (const v of textVariants) {
@@ -221,9 +221,7 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
       // Progress: 90% - Saving posts
       setProgress(90)
 
-      const previous = getPostsForUser(user.id)
-      const merged = dedupePosts([...previous, ...posts])
-      savePosts(user.id, merged)
+      await createPosts(posts)
 
       // Progress: 100% - Complete
       setProgress(100)
@@ -266,9 +264,9 @@ export default function ScheduleModal({ open, onOpenChange }: Props) {
         <div ref={scrollRef} className="flex-1 overflow-y-auto pr-2">
           {/* Progress Bar - Show when loading */}
           {loading && (
-            <div ref={progressRef} className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div ref={progressRef} className="mb-6 p-4 bg-accent rounded-lg border border-green-200 dark:border-green-900">
               <ProgressBar progress={progress} />
-              <p className="text-sm text-blue-700 mt-2 text-center">
+              <p className="text-sm text-accent-foreground mt-2 text-center">
                 {progress < 30 && "Initializing content generation..."}
                 {progress >= 30 && progress < 60 && "Generating unique content variants..."}
                 {progress >= 60 && progress < 80 && "Creating custom images..."}
@@ -749,19 +747,6 @@ function generateVarietyTag(index: number) {
     "Longer variant",
   ]
   return `(${tags[index % tags.length]})`
-}
-
-function dedupePosts(ps: Post[]): Post[] {
-  const seen = new Set<string>()
-  const out: Post[] = []
-  for (const p of ps) {
-    const key = `${p.userId}|${p.platform}|${new Date(p.scheduledAt).toISOString()}|${hashContent(normalizeContent(p.content))}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      out.push(p)
-    }
-  }
-  return out
 }
 
 function buildPromptFromTemplate(values: any): string {

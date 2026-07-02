@@ -32,21 +32,18 @@ export default function CreateCompanyModal({ open, onOpenChange, onCompanyCreate
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const user = getSessionUser()
+    const user = await getSessionUser()
     if (!user || !name.trim()) return
 
     setLoading(true)
 
-    // Simulate async operation
-    setTimeout(() => {
-      const company = createCompany(name.trim(), description.trim(), user.id)
+    const company = await createCompany(name.trim(), description.trim(), user.id)
 
-      setName("")
-      setDescription("")
-      setLoading(false)
-      onOpenChange(false)
-      onCompanyCreated?.(company.id)
-    }, 500)
+    setName("")
+    setDescription("")
+    setLoading(false)
+    onOpenChange(false)
+    if (company) onCompanyCreated?.(company.id)
   }
 
   const handleClose = () => {

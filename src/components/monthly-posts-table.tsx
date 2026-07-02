@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/toast-notification"
-import { getSessionUser, getCompanyMembers, createShareLink, createNotification } from "@/lib/storage"
+import { getSessionUser, getCompanyMembers, createShareLink } from "@/lib/storage"
 import type { Post, Platform, SharePrivilege, CompanyMember } from "@/lib/types"
 
 type Props = {
@@ -162,11 +162,13 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
   }, [availablePlatforms, selectedPlatform])
 
   useEffect(() => {
-    const user = getSessionUser()
-    if (user?.currentCompanyId) {
-      const members = getCompanyMembers(user.currentCompanyId)
-      setCompanyMembers(members)
-    }
+    ;(async () => {
+      const user = await getSessionUser()
+      if (user?.currentCompanyId) {
+        const members = await getCompanyMembers(user.currentCompanyId)
+        setCompanyMembers(members)
+      }
+    })()
   }, [])
 
   const monthlyPosts = useMemo(() => {
@@ -249,13 +251,13 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
     })
   }
 
-  const generateShareUrl = () => {
-    const user = getSessionUser()
-    if (!user || selectedPrivileges.length === 0) return
+  const generateShareUrl = async () => {
+    const user = await getSessionUser()
+    if (!user || !user.currentCompanyId || selectedPrivileges.length === 0) return null
 
-    const shareLink = createShareLink({
+    const shareLink = await createShareLink({
       userId: user.id,
-      companyId: user.currentCompanyId!,
+      companyId: user.currentCompanyId,
       month: currentMonth,
       year: currentYear,
       platform: selectedPlatform || undefined,
@@ -263,6 +265,7 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
       recipientEmail: recipientEmail || undefined,
       recipientName: recipientName || undefined,
     })
+    if (!shareLink) return null
 
     const params = new URLSearchParams({
       shareId: shareLink.id,
@@ -275,27 +278,18 @@ export default function MonthlyPostsTable({ posts, onUpdatePost }: Props) {
     const baseUrl = window.location.origin
     const generatedUrl = `${baseUrl}/shared/monthly-overview?${params.toString()}`
     setShareUrl(generatedUrl)
-
-    createNotification(
-      "share",
-      "Content Shared",
-      `Monthly overview shared with ${recipientName || recipientEmail || "recipient"} with ${selectedPrivileges.join(", ")} privileges.`,
-      {
-        shareId: shareLink.id,
-        recipient: recipientName || recipientEmail,
-        privileges: selectedPrivileges,
-      },
-    )
+    return generatedUrl
   }
 
   const handleCopyUrl = async () => {
-    if (!shareUrl) {
-      generateShareUrl()
-      return
+    let url: string | null = shareUrl
+    if (!url) {
+      url = await generateShareUrl()
+      if (!url) return
     }
 
     try {
-      await navigator.clipboard.writeText(shareUrl)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       showToast({
         type: "success",

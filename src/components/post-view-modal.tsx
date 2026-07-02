@@ -9,6 +9,7 @@ import { useState } from "react"
 import { LoadingSpinner } from "./loading-spinner"
 import { useToast } from "./toast-notification"
 import ImageViewerModal from "./image-viewer-modal"
+import { publishPost } from "@/lib/storage"
 import type { Post } from "@/lib/types"
 
 type Props = {
@@ -18,10 +19,11 @@ type Props = {
   onEdit?: (post: Post) => void
   onDelete?: (post: Post) => void
   onBulkDelete?: (posts: Post[], date: Date) => void
+  onPublished?: () => void
   title?: string
 }
 
-export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDelete, onBulkDelete, title }: Props) {
+export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDelete, onBulkDelete, onPublished, title }: Props) {
   const { showToast } = useToast()
   const [sendingStates, setSendingStates] = useState<Record<string, boolean>>({})
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
@@ -30,16 +32,25 @@ export default function PostViewModal({ posts, open, onOpenChange, onEdit, onDel
   const handlePostNow = async (post: Post) => {
     setSendingStates((prev) => ({ ...prev, [post.id]: true }))
 
-    // Mock success for now
-    setTimeout(() => {
-      setSendingStates((prev) => ({ ...prev, [post.id]: false }))
+    const platformName = post.platform.charAt(0).toUpperCase() + post.platform.slice(1)
+    const result = await publishPost(post.id)
 
+    setSendingStates((prev) => ({ ...prev, [post.id]: false }))
+
+    if (result.ok) {
       showToast({
         type: "success",
-        title: "Posted Successfully!",
-        message: `Your post has been sent to ${post.platform.charAt(0).toUpperCase() + post.platform.slice(1)}.`,
+        title: "Posted successfully",
+        message: `Your post was published to ${platformName}.`,
       })
-    }, 1500)
+      onPublished?.()
+    } else {
+      showToast({
+        type: "error",
+        title: "Publish failed",
+        message: result.error || `Failed to publish to ${platformName}.`,
+      })
+    }
   }
 
   const handleImageClick = (imageUrl: string, postPlatform: string) => {

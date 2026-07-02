@@ -26,7 +26,7 @@ export function ProgressBar({ progress, className = "", showPercentage = true }:
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div
-          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+          className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
           style={{ width: `${displayProgress}%` }}
         />
       </div>

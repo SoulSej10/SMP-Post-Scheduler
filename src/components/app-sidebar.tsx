@@ -72,20 +72,22 @@ export function AppSidebar({ onCompanyChange }: Props) {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    const user = getSessionUser()
-    if (user?.name) {
-      setUserName(user.name)
-      setUserEmail(user.email)
-      // Load full profile for avatar
-      const profile = getUserProfile(user.id)
-      setUserProfile(profile)
-    }
-    setUnreadCount(getUnreadNotificationCount())
+    ;(async () => {
+      const user = await getSessionUser()
+      if (user?.name) {
+        setUserName(user.name)
+        setUserEmail(user.email)
+        // Load full profile for avatar
+        const profile = await getUserProfile(user.id)
+        setUserProfile(profile)
+      }
+      setUnreadCount(await getUnreadNotificationCount())
+    })()
   }, [])
 
   useEffect(() => {
     if (!showNotifications) {
-      setUnreadCount(getUnreadNotificationCount())
+      getUnreadNotificationCount().then(setUnreadCount)
     }
   }, [showNotifications])
 
@@ -120,8 +122,8 @@ export function AppSidebar({ onCompanyChange }: Props) {
     router.push("/")
   }
 
-  const handleLogout = () => {
-    logoutLocal()
+  const handleLogout = async () => {
+    await logoutLocal()
     router.push("/login")
   }
 
@@ -150,7 +152,7 @@ export function AppSidebar({ onCompanyChange }: Props) {
               <PenTool className="h-5 w-5 text-primary-foreground" />
             </div>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="font-bold text-lg">Pen Master</span>
+              <span className="font-bold text-lg">Gazetta</span>
               <span className="text-xs text-muted-foreground">Social Scheduler</span>
             </div>
           </div>
@@ -199,7 +201,7 @@ export function AppSidebar({ onCompanyChange }: Props) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={handleAllSchedulesClick}
-                    className={`cursor-pointer ${!currentPlatform ? "bg-accent" : ""}`}
+                    className={`cursor-pointer ${!currentPlatform ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}
                   >
                     <CalendarCheck2 />
                     <span>All Schedules</span>
@@ -209,7 +211,7 @@ export function AppSidebar({ onCompanyChange }: Props) {
                   <SidebarMenuItem key={item.platform}>
                     <SidebarMenuButton
                       onClick={() => handlePlatformClick(item.platform)}
-                      className={`cursor-pointer ${currentPlatform === item.platform ? "bg-accent" : ""}`}
+                      className={`cursor-pointer ${currentPlatform === item.platform ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}
                     >
                       <item.icon className={item.color} />
                       <span>{item.title}</span>
